@@ -14,6 +14,7 @@ const AngleMath = require('../src/core/util/AngleMath');
 const AspectEngine = require('../src/core/astrology/AspectEngine');
 const Profile = require('../src/core/models/Profile');
 const AstrologyService = require('../src/core/astrology/AstrologyService');
+const FirdariaCalc = require('../src/core/astrology/FirdariaCalc');
 
 let passed = 0;
 let failed = 0;
@@ -101,6 +102,31 @@ test('sameSet avoids duplicate and self pairs', () => {
   assert.strictEqual(out.length, 3); // a-b, a-c, b-c trines
 });
 
+console.log('\nFirdariaCalc');
+test('day birth period sequence totals 75 years', () => {
+  const periods = FirdariaCalc.periods('day');
+  const total = periods.reduce((s, p) => s + p.years, 0);
+  assert.strictEqual(total, 75);
+});
+test('night birth starts with Moon', () => {
+  const periods = FirdariaCalc.periods('night');
+  assert.strictEqual(periods[0].ruler, 'moon');
+});
+test('activePeriod returns correct ruler for age 5 (day birth)', () => {
+  const result = FirdariaCalc.activePeriod(5, 'day');
+  assert.strictEqual(result.major.ruler, 'sun');
+  assert.ok(result.major.startAge === 0);
+  assert.ok(result.major.endAge === 10);
+});
+test('activePeriod returns correct ruler for age 12 (day birth)', () => {
+  const result = FirdariaCalc.activePeriod(12, 'day');
+  assert.strictEqual(result.major.ruler, 'venus');
+});
+test('activePeriod wraps after 75 years', () => {
+  const result = FirdariaCalc.activePeriod(80, 'day');
+  assert.strictEqual(result.major.ruler, 'sun');
+});
+
 console.log('\nChart strategies (via AstrologyService)');
 function basicChartChecks(chart) {
   assert.ok(chart.meta && chart.meta.type, 'has meta.type');
@@ -144,6 +170,58 @@ test('lunar return returns the Moon to natal longitude', () => {
   const lrMoon = lr.rings[0].points.find((p) => p.key === 'moon').longitude;
   assert.ok(AngleMath.separation(natalMoon, lrMoon) < 0.2, `moon diff ${AngleMath.separation(natalMoon, lrMoon)}`);
 });
+test('tertiary progressed chart', () => {
+  const c = svc.computeChart({ type: 'tertiaryProgressed', primary: subjectA, options: { targetDate: '2026-06-18T12:00:00Z' } });
+  basicChartChecks(c);
+  assert.strictEqual(c.rings.length, 2);
+  assert.strictEqual(c.meta.type, 'tertiaryProgressed');
+});
+test('solar arc chart advances all points by Sun arc', () => {
+  const c = svc.computeChart({ type: 'solarArc', primary: subjectA, options: { targetDate: '2026-06-18T12:00:00Z' } });
+  basicChartChecks(c);
+  assert.strictEqual(c.rings.length, 2);
+  assert.strictEqual(c.meta.type, 'solarArc');
+  const natalSun = c.rings[0].points.find((p) => p.key === 'sun');
+  const arcSun = c.rings[1].points.find((p) => p.key === 'sun');
+  const arcMars = c.rings[1].points.find((p) => p.key === 'mars');
+  const natalMars = c.rings[0].points.find((p) => p.key === 'mars');
+  const sunArc = AngleMath.normalize(arcSun.longitude - natalSun.longitude);
+  const marsArc = AngleMath.normalize(arcMars.longitude - natalMars.longitude);
+  assert.ok(Math.abs(sunArc - marsArc) < 0.01, 'all planets share the same arc');
+});
+test('firdaria chart includes period data', () => {
+  const c = svc.computeChart({ type: 'firdaria', primary: subjectA, options: { targetDate: '2026-06-18T12:00:00Z' } });
+  basicChartChecks(c);
+  assert.strictEqual(c.rings.length, 1);
+  assert.strictEqual(c.meta.type, 'firdaria');
+  assert.ok(c.meta.firdaria, 'has firdaria data');
+  assert.ok(c.meta.firdaria.major.ruler, 'has major period ruler');
+  assert.ok(Array.isArray(c.meta.firdaria.allPeriods), 'has all periods');
+});
+test('profection chart rotates ASC by age', () => {
+  const c = svc.computeChart({ type: 'profection', primary: subjectA, options: { targetDate: '2026-06-18T12:00:00Z' } });
+  basicChartChecks(c);
+  assert.strictEqual(c.rings.length, 1);
+  assert.strictEqual(c.meta.type, 'profection');
+  assert.ok(c.meta.profection, 'has profection data');
+  assert.ok(typeof c.meta.profection.age === 'number');
+  assert.ok(typeof c.meta.profection.profectedSign === 'string');
+  assert.ok(typeof c.meta.profection.lordOfYear === 'string');
+});
+test('relocation chart has different houses from natal', () => {
+  const natal = svc.computeChart({ type: 'natal', primary: subjectA });
+  const reloc = svc.computeChart({
+    type: 'relocation',
+    primary: subjectA,
+    options: { latitude: 40.7128, longitude: -74.006, locationLabel: 'New York' },
+  });
+  basicChartChecks(reloc);
+  assert.strictEqual(reloc.rings.length, 1);
+  assert.strictEqual(reloc.meta.type, 'relocation');
+  const natalAsc = natal.angles.ascendant.longitude;
+  const relocAsc = reloc.angles.ascendant.longitude;
+  assert.ok(Math.abs(natalAsc - relocAsc) > 1, 'ascendant differs for different location');
+});
 test('synastry produces inter-aspects between two charts', () => {
   const c = svc.computeChart({ type: 'synastry', primary: subjectA, secondary: subjectB });
   basicChartChecks(c);
@@ -171,7 +249,7 @@ test('unknown chart type throws', () => {
 test('referenceData and chartTypes are complete', () => {
   const ref = svc.referenceData();
   assert.strictEqual(ref.signs.length, 12);
-  assert.strictEqual(ref.chartTypes.length, 8);
+  assert.strictEqual(ref.chartTypes.length, 13);
 });
 
 console.log(`\n${passed} passed, ${failed} failed\n`);

@@ -11,6 +11,11 @@ const LunarReturnChartStrategy = require('./strategies/LunarReturnChartStrategy'
 const SynastryChartStrategy = require('./strategies/SynastryChartStrategy');
 const CompositeChartStrategy = require('./strategies/CompositeChartStrategy');
 const DavisonChartStrategy = require('./strategies/DavisonChartStrategy');
+const TertiaryProgressedChartStrategy = require('./strategies/TertiaryProgressedChartStrategy');
+const SolarArcChartStrategy = require('./strategies/SolarArcChartStrategy');
+const FirdariaChartStrategy = require('./strategies/FirdariaChartStrategy');
+const ProfectionChartStrategy = require('./strategies/ProfectionChartStrategy');
+const RelocationChartStrategy = require('./strategies/RelocationChartStrategy');
 
 /**
  * ChartStrategyFactory — Factory pattern that maps a chart-type token to a fully
@@ -31,6 +36,11 @@ class ChartStrategyFactory {
       synastry: SynastryChartStrategy,
       composite: CompositeChartStrategy,
       davison: DavisonChartStrategy,
+      tertiaryProgressed: TertiaryProgressedChartStrategy,
+      solarArc: SolarArcChartStrategy,
+      firdaria: FirdariaChartStrategy,
+      profection: ProfectionChartStrategy,
+      relocation: RelocationChartStrategy,
     };
     this._cache = new Map();
   }
