@@ -76,6 +76,16 @@
   --font-glyph: "Maple Mono NF CN", "Segoe UI Symbol", "Apple Symbols", "Noto Sans Symbols2", serif;
 
   --transition: 140ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Token scale defaults (overridden by ConfigApplier at runtime) */
+  --sp-0: 0px; --sp-half: 2px; --sp-px: 1px;
+  --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px;
+  --sp-5: 20px; --sp-6: 24px; --sp-8: 32px; --sp-10: 40px; --sp-12: 48px; --sp-16: 64px;
+
+  --fs-2xs: 8px; --fs-xs: 9px; --fs-sm: 11px; --fs-md: 13px;
+  --fs-lg: 16px; --fs-xl: 19px; --fs-2xl: 22px; --fs-3xl: 27px; --fs-display: 32px;
+
+  --fw-normal: 400; --fw-medium: 500; --fw-semibold: 600; --fw-bold: 700;
 }
 
 * { box-sizing: border-box; }

@@ -7,6 +7,7 @@ import { h, mount } from './Dom.js';
 import { Store } from './Store.js';
 import { ApiClient } from './ApiClient.js';
 import { applyConfig } from './ConfigApplier.js';
+import { loadLocale } from './I18n.js';
 import { ProfilesView } from './views/ProfilesView.js';
 import { ChartView } from './views/ChartView.js';
 import { SynastryView } from './views/SynastryView.js';
@@ -29,6 +30,9 @@ export class App {
     const config = await ApiClient.getConfig();
     applyConfig(config);
     this.config = config;
+
+    const locale = await ApiClient.getLocale();
+    loadLocale(locale);
 
     const reference = await ApiClient.getReferenceData();
     this.reference = reference;

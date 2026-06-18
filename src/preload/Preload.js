@@ -16,6 +16,7 @@ contextBridge.exposeInMainWorld('mystApi', {
   /** Static reference data (signs, aspects, chart types, …). */
   getReferenceData: () => invoke('reference:get'),
   getConfig: () => invoke('config:get'),
+  getLocale: () => invoke('locale:get'),
   getChartTypes: () => invoke('chartTypes:get'),
 
   /** Profile CRUD. */

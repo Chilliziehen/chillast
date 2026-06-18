@@ -1,32 +1,49 @@
 export function applyConfig(config) {
   if (!config) return;
+  const root = document.documentElement;
+  const set = (name, val) => root.style.setProperty(name, String(val));
+  const kebab = (k) => k.replace(/[A-Z]/g, (m) => '-' + m.toLowerCase());
 
-  if (config.theme) {
-    applyTheme(config.theme);
+  if (config.spacing) {
+    for (const [name, val] of Object.entries(config.spacing)) {
+      set(`--sp-${name}`, val);
+    }
+  }
+
+  if (config.type) {
+    for (const [name, val] of Object.entries(config.type)) {
+      set(`--fs-${name}`, val);
+    }
+  }
+
+  if (config.weight) {
+    for (const [name, val] of Object.entries(config.weight)) {
+      set(`--fw-${name}`, String(val));
+    }
+  }
+
+  if (config.colors) {
+    for (const [key, val] of Object.entries(config.colors)) {
+      set(`--${kebab(key)}`, val);
+    }
+  }
+
+  if (config.radii) {
+    for (const [name, val] of Object.entries(config.radii)) {
+      set(`--radius-${name}`, val);
+    }
+  }
+
+  if (config.shadows) {
+    for (const [name, val] of Object.entries(config.shadows)) {
+      set(`--shadow-${name}`, val);
+    }
   }
 
   if (config.layout) {
-    applyLayout(config.layout);
-  }
-}
-
-function applyTheme(theme) {
-  const root = document.documentElement;
-  const toVar = (key) => `--${key.replace(/[A-Z]/g, (m) => '-' + m.toLowerCase())}`;
-  for (const [key, value] of Object.entries(theme)) {
-    root.style.setProperty(toVar(key), String(value));
-  }
-}
-
-function applyLayout(layout) {
-  const root = document.documentElement;
-  if (layout.sidebarWidth != null) {
-    root.style.setProperty('--sidebar-width', `${layout.sidebarWidth}px`);
-  }
-  if (layout.chartCanvasMaxWidth != null) {
-    root.style.setProperty('--chart-max-width', `${layout.chartCanvasMaxWidth}px`);
-  }
-  if (layout.workbenchGridColumns != null) {
-    root.style.setProperty('--workbench-grid', layout.workbenchGridColumns);
+    const l = config.layout;
+    if (l.sidebarWidth != null) set('--sidebar-width', `${l.sidebarWidth}px`);
+    if (l.chartCanvasMaxWidth != null) set('--chart-max-width', `${l.chartCanvasMaxWidth}px`);
+    if (l.workbenchGridColumns != null) set('--workbench-grid', l.workbenchGridColumns);
   }
 }

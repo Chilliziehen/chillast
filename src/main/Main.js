@@ -8,6 +8,8 @@ const IpcRouter = require('./IpcRouter');
 const AstrologyService = require('../core/astrology/AstrologyService');
 const ConfigManager = require('../core/config/ConfigManager');
 
+const fs = require('fs');
+
 /**
  * Main — Electron main-process bootstrap. It composes the application root
  * (repository, service, IPC router), creates the secured main window and manages
@@ -25,6 +27,9 @@ class Main {
   /** Compose services that do not depend on Electron being ready. */
   bootstrapServices() {
     this.config = ConfigManager.load();
+    const localeName = this.config.locale || 'zh';
+    const localePath = path.join(__dirname, '..', '..', 'locale', `${localeName}.json`);
+    this.locale = JSON.parse(fs.readFileSync(localePath, 'utf-8'));
     const baseDir = path.join(app.getPath('userData'), 'data');
     this.profileRepository = new ProfileRepository(baseDir).init();
     this.astrologyService = new AstrologyService();
@@ -33,6 +38,7 @@ class Main {
       profileRepository: this.profileRepository,
       astrologyService: this.astrologyService,
       config: this.config,
+      locale: this.locale,
     }).register();
   }
 
