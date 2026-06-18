@@ -11,18 +11,18 @@
 
 /** The twelve tropical zodiac signs in order, with element/modality metadata. */
 const ZODIAC_SIGNS = [
-  { key: 'aries', nameEn: 'Aries', nameZh: '白羊座', glyph: '♈', element: 'fire', modality: 'cardinal', ruler: 'mars' },
-  { key: 'taurus', nameEn: 'Taurus', nameZh: '金牛座', glyph: '♉', element: 'earth', modality: 'fixed', ruler: 'venus' },
-  { key: 'gemini', nameEn: 'Gemini', nameZh: '双子座', glyph: '♊', element: 'air', modality: 'mutable', ruler: 'mercury' },
-  { key: 'cancer', nameEn: 'Cancer', nameZh: '巨蟹座', glyph: '♋', element: 'water', modality: 'cardinal', ruler: 'moon' },
-  { key: 'leo', nameEn: 'Leo', nameZh: '狮子座', glyph: '♌', element: 'fire', modality: 'fixed', ruler: 'sun' },
-  { key: 'virgo', nameEn: 'Virgo', nameZh: '处女座', glyph: '♍', element: 'earth', modality: 'mutable', ruler: 'mercury' },
-  { key: 'libra', nameEn: 'Libra', nameZh: '天秤座', glyph: '♎', element: 'air', modality: 'cardinal', ruler: 'venus' },
-  { key: 'scorpio', nameEn: 'Scorpio', nameZh: '天蝎座', glyph: '♏', element: 'water', modality: 'fixed', ruler: 'mars' },
-  { key: 'sagittarius', nameEn: 'Sagittarius', nameZh: '射手座', glyph: '♐', element: 'fire', modality: 'mutable', ruler: 'jupiter' },
-  { key: 'capricorn', nameEn: 'Capricorn', nameZh: '摩羯座', glyph: '♑', element: 'earth', modality: 'cardinal', ruler: 'saturn' },
-  { key: 'aquarius', nameEn: 'Aquarius', nameZh: '水瓶座', glyph: '♒', element: 'air', modality: 'fixed', ruler: 'saturn' },
-  { key: 'pisces', nameEn: 'Pisces', nameZh: '双鱼座', glyph: '♓', element: 'water', modality: 'mutable', ruler: 'jupiter' },
+  { key: 'aries', nameEn: 'Aries', nameZh: '白羊座', shortZh: '羊', glyph: '♈', element: 'fire', modality: 'cardinal', ruler: 'mars' },
+  { key: 'taurus', nameEn: 'Taurus', nameZh: '金牛座', shortZh: '牛', glyph: '♉', element: 'earth', modality: 'fixed', ruler: 'venus' },
+  { key: 'gemini', nameEn: 'Gemini', nameZh: '双子座', shortZh: '双', glyph: '♊', element: 'air', modality: 'mutable', ruler: 'mercury' },
+  { key: 'cancer', nameEn: 'Cancer', nameZh: '巨蟹座', shortZh: '蟹', glyph: '♋', element: 'water', modality: 'cardinal', ruler: 'moon' },
+  { key: 'leo', nameEn: 'Leo', nameZh: '狮子座', shortZh: '狮', glyph: '♌', element: 'fire', modality: 'fixed', ruler: 'sun' },
+  { key: 'virgo', nameEn: 'Virgo', nameZh: '处女座', shortZh: '处', glyph: '♍', element: 'earth', modality: 'mutable', ruler: 'mercury' },
+  { key: 'libra', nameEn: 'Libra', nameZh: '天秤座', shortZh: '秤', glyph: '♎', element: 'air', modality: 'cardinal', ruler: 'venus' },
+  { key: 'scorpio', nameEn: 'Scorpio', nameZh: '天蝎座', shortZh: '蝎', glyph: '♏', element: 'water', modality: 'fixed', ruler: 'mars' },
+  { key: 'sagittarius', nameEn: 'Sagittarius', nameZh: '射手座', shortZh: '射', glyph: '♐', element: 'fire', modality: 'mutable', ruler: 'jupiter' },
+  { key: 'capricorn', nameEn: 'Capricorn', nameZh: '摩羯座', shortZh: '摩', glyph: '♑', element: 'earth', modality: 'cardinal', ruler: 'saturn' },
+  { key: 'aquarius', nameEn: 'Aquarius', nameZh: '水瓶座', shortZh: '瓶', glyph: '♒', element: 'air', modality: 'fixed', ruler: 'saturn' },
+  { key: 'pisces', nameEn: 'Pisces', nameZh: '双鱼座', shortZh: '鱼', glyph: '♓', element: 'water', modality: 'mutable', ruler: 'jupiter' },
 ];
 
 /**

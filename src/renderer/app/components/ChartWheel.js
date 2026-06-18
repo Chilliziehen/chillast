@@ -1,70 +1,95 @@
 // ChartWheel.js — renders a professional astrological wheel as inline SVG.
 //
-// It supports single-ring charts (natal, returns, composite, davison) and
-// bi-wheel charts (transit, progressed, synastry) where a second ring of points
-// surrounds the first. The wheel is oriented the traditional way: the Ascendant
-// sits on the left (west) and the zodiac increases counter-clockwise.
+// Structure (outside → inside):
+//   1. Dark zodiac band with Chinese sign characters (dividers only within band)
+//   2. Degree ticks on inner edge of band
+//   3. Planet labels near the band, each with a short leader line pointing INWARD
+//      to a dot on the aspect circle
+//   4. Aspect lines connecting those dots across the full inner area
+//   5. House lines & angle axes from center to zodiac inner edge
 //
-// Rendering is intentionally pure: given chart data + reference signs it returns
-// an SVG string, so it has no dependency on the DOM lifecycle and is trivial to
-// snapshot-test.
+// All planet groups are wrapped in <g data-planet-key="..."> for click detection.
 
 const SIZE = 740;
 const CX = SIZE / 2;
 const CY = SIZE / 2;
 
-// Concentric radii (px from centre).
 const R = {
-  zodiacOuter: 352,
-  zodiacInner: 300,
-  tick: 292,           // minor degree ticks reach inward to here
-  houseOuter: 300,
-  hub: 150,            // aspect hub boundary / inner house-line end
-  houseNumber: 168,
+  outerRim: 364,
+  zodiacOuter: 356,
+  zodiacInner: 305,
+  houseOuter: 305,
+  houseNumber: 130,
 };
 
-// Planet ring radii depend on whether the chart is single or bi-wheel.
 const PLANET_RADIUS = {
-  single: 262,
-  inner: 232,
-  outer: 280,
+  single: 256,
+  inner: 216,
+  outer: 272,
 };
 
-const ASPECT_CLASS = {
-  conjunction: 'conjunction',
-  opposition: 'tension', square: 'tension',
-  trine: 'harmonic', sextile: 'harmonic',
+const LEADER_LEN = 32;
+
+const PLANET_COLOR = {
+  sun:       '#dcdcaa',
+  moon:      '#9cdcfe',
+  mercury:   '#4ec9b0',
+  venus:     '#ce9178',
+  mars:      '#f44747',
+  jupiter:   '#c586c0',
+  saturn:    '#6a9955',
+  uranus:    '#569cd6',
+  neptune:   '#4fc1ff',
+  pluto:     '#d16969',
+  chiron:    '#b5cea8',
+  northnode: '#9cdcfe',
+  southnode: '#808080',
+  lilith:    '#c586c0',
 };
 
-const ASPECT_COLOR = {
-  conjunction: '#d9b25b',
-  harmonic: '#5bd6a0',
-  tension: '#e06a78',
-  minor: '#8a82b0',
+const PLANET_LABEL = {
+  sun: '日', moon: '月', mercury: '水', venus: '金', mars: '火',
+  jupiter: '木', saturn: '土', uranus: '天', neptune: '海', pluto: '冥',
+  chiron: '凯', northnode: '北', southnode: '南', lilith: '莉',
+};
+
+// Each aspect type gets its own distinct color.
+const ASPECT_TYPE_COLOR = {
+  conjunction:     '#dcdcaa',   // warm yellow
+  opposition:      '#f44747',   // red
+  trine:           '#4ec9b0',   // teal
+  square:          '#d97340',   // orange
+  sextile:         '#56b6c2',   // cyan
+  quincunx:        '#c586c0',   // purple
+  sesquiquadrate:  '#d19a66',   // amber
+  semisquare:      '#e06c75',   // rose
+  semisextile:     '#98c379',   // green
+  quintile:        '#7c7ce0',   // violet
 };
 
 const ELEMENT_COLOR = {
-  fire: '#e8714a', earth: '#c2a36a', air: '#6fb6e8', water: '#6f78e8',
+  fire: '#ce9178',
+  earth: '#6a9955',
+  air: '#9cdcfe',
+  water: '#4ec9b0',
 };
 
+export { PLANET_COLOR, ASPECT_TYPE_COLOR };
+
 export class ChartWheel {
-  /**
-   * @param {object} reference referenceData() payload (needs `.signs`).
-   */
   constructor(reference) {
     this.signs = reference.signs;
   }
 
-  /** Render the wheel for a chart into `container` (innerHTML). */
   render(container, chart) {
     container.innerHTML = this.toSvg(chart);
   }
 
-  /** @returns {string} the full SVG markup for a chart. */
   toSvg(chart) {
     const rotation = chart.angles && chart.angles.ascendant
       ? chart.angles.ascendant.longitude : 0;
-    const ctx = { rotation };
+    const isBiWheel = (chart.rings || []).length > 1;
+    const ctx = { rotation, isBiWheel };
 
     const layers = [
       this._zodiacBand(ctx),
@@ -73,42 +98,49 @@ export class ChartWheel {
       this._aspects(chart, ctx),
       this._angleMarkers(chart, ctx),
       this._planetRings(chart, ctx),
-      this._hub(),
     ];
 
-    return `<svg viewBox="0 0 ${SIZE} ${SIZE}" xmlns="http://www.w3.org/2000/svg" role="img">${layers.join('')}</svg>`;
+    const svgFont = `<defs><style>text{font-family:'Maple Mono NF CN','Segoe UI',sans-serif}</style></defs>`;
+    return `<svg viewBox="0 0 ${SIZE} ${SIZE}" xmlns="http://www.w3.org/2000/svg" role="img">${svgFont}${layers.join('')}</svg>`;
   }
 
-  // —— geometry ————————————————————————————————————————————————
-
-  /** Map an ecliptic longitude to screen coordinates at radius `r`. */
   _polar(r, longitude, rotation) {
     const theta = (180 + (longitude - rotation)) * Math.PI / 180;
     return { x: CX + r * Math.cos(theta), y: CY - r * Math.sin(theta) };
+  }
+
+  _signShort(longitude) {
+    const idx = Math.floor((((longitude % 360) + 360) % 360) / 30);
+    return this.signs[idx] ? this.signs[idx].shortZh : '';
   }
 
   // —— layers ——————————————————————————————————————————————————
 
   _zodiacBand(ctx) {
     let out = '';
-    // base rings
-    out += circle(CX, CY, R.zodiacOuter, 'fill:none;stroke:rgba(180,160,235,0.35);stroke-width:1.5');
-    out += circle(CX, CY, R.zodiacInner, 'fill:none;stroke:rgba(180,160,235,0.25);stroke-width:1');
+    out += circle(CX, CY, R.outerRim, 'fill:none;stroke:rgba(50,50,50,0.4);stroke-width:0.8');
+    out += circle(CX, CY, R.zodiacOuter, 'fill:none;stroke:rgba(55,55,55,0.55);stroke-width:1');
+    out += circle(CX, CY, R.zodiacInner, 'fill:none;stroke:rgba(55,55,55,0.40);stroke-width:0.8');
+
+    const signMidR = (R.zodiacInner + R.zodiacOuter) / 2;
 
     for (let i = 0; i < 12; i += 1) {
       const sign = this.signs[i];
       const a0 = i * 30;
       const a1 = a0 + 30;
-      // tinted sector
+
       out += this._sector(R.zodiacInner, R.zodiacOuter, a0, a1, ctx.rotation,
-        `fill:${ELEMENT_COLOR[sign.element]};fill-opacity:0.12;stroke:none`);
-      // divider line
-      const p = this._polar(R.zodiacOuter, a0, ctx.rotation);
-      const pin = this._polar(R.hub, a0, ctx.rotation);
-      out += line(pin.x, pin.y, p.x, p.y, 'stroke:rgba(150,132,220,0.10);stroke-width:1');
-      // sign glyph
-      const c = this._polar((R.zodiacInner + R.zodiacOuter) / 2, a0 + 15, ctx.rotation);
-      out += text(c.x, c.y, sign.glyph, `fill:${ELEMENT_COLOR[sign.element]};font-size:24px`, 'svg-glyph');
+        'fill:rgba(10,10,10,0.90);stroke:none');
+
+      const pIn = this._polar(R.zodiacInner, a0, ctx.rotation);
+      const pOut = this._polar(R.zodiacOuter, a0, ctx.rotation);
+      out += line(pIn.x, pIn.y, pOut.x, pOut.y,
+        'stroke:rgba(60,60,60,0.5);stroke-width:0.8');
+
+      const c = this._polar(signMidR, a0 + 15, ctx.rotation);
+      const color = ELEMENT_COLOR[sign.element] || '#888';
+      out += text(c.x, c.y, sign.shortZh || sign.glyph,
+        `fill:${color};font-size:24px;font-weight:400`);
     }
     return out;
   }
@@ -116,10 +148,11 @@ export class ChartWheel {
   _degreeTicks(ctx) {
     let out = '';
     for (let d = 0; d < 360; d += 5) {
-      const long = d % 10 === 0 ? 9 : 5;
+      const long = d % 10 === 0 ? 6 : 3;
       const p1 = this._polar(R.zodiacInner, d, ctx.rotation);
       const p2 = this._polar(R.zodiacInner - long, d, ctx.rotation);
-      out += line(p1.x, p1.y, p2.x, p2.y, 'stroke:rgba(180,160,235,0.30);stroke-width:1');
+      out += line(p1.x, p1.y, p2.x, p2.y,
+        'stroke:rgba(75,75,75,0.25);stroke-width:0.5');
     }
     return out;
   }
@@ -130,33 +163,39 @@ export class ChartWheel {
     let out = '';
     for (let i = 0; i < houses.length; i += 1) {
       const cusp = houses[i];
-      const inner = this._polar(R.hub, cusp.cuspLongitude, ctx.rotation);
-      const outer = this._polar(R.houseOuter, cusp.cuspLongitude, ctx.rotation);
       const isAngle = [1, 4, 7, 10].includes(cusp.index);
-      out += line(inner.x, inner.y, outer.x, outer.y,
-        `stroke:rgba(180,160,235,${isAngle ? 0.45 : 0.18});stroke-width:${isAngle ? 1.4 : 1}`);
-      // house number placed at the midpoint of the house arc.
+      if (!isAngle) {
+        const inner = this._polar(6, cusp.cuspLongitude, ctx.rotation);
+        const outer = this._polar(R.houseOuter, cusp.cuspLongitude, ctx.rotation);
+        out += line(inner.x, inner.y, outer.x, outer.y,
+          'stroke:rgba(60,60,60,0.22);stroke-width:0.5');
+      }
       const next = houses[(i + 1) % houses.length];
       const mid = midLongitude(cusp.cuspLongitude, next.cuspLongitude);
       const np = this._polar(R.houseNumber, mid, ctx.rotation);
       out += text(np.x, np.y, String(cusp.index),
-        'fill:rgba(179,170,214,0.65);font-size:12px');
+        'fill:rgba(100,100,100,0.38);font-size:10px;font-weight:400');
     }
     return out;
   }
 
   _angleMarkers(chart, ctx) {
     const angles = chart.angles || {};
-    const labels = { ascendant: 'Asc', midheaven: 'MC', descendant: 'Dsc', imumcoeli: 'IC' };
+    const labels = {
+      ascendant: '升', midheaven: '顶',
+      descendant: '降', imumcoeli: '底',
+    };
     let out = '';
     for (const [key, label] of Object.entries(labels)) {
       const a = angles[key];
       if (!a) continue;
-      const inner = this._polar(R.hub, a.longitude, ctx.rotation);
-      const outer = this._polar(R.zodiacOuter + 0, a.longitude, ctx.rotation);
-      out += line(inner.x, inner.y, outer.x, outer.y, 'stroke:#d9b25b;stroke-width:1.6;stroke-dasharray:none');
-      const lp = this._polar(R.zodiacOuter + 14, a.longitude, ctx.rotation);
-      out += text(lp.x, lp.y, label, 'fill:#f0cd7a;font-size:12px;font-weight:600');
+      const inner = this._polar(5, a.longitude, ctx.rotation);
+      const outer = this._polar(R.zodiacOuter, a.longitude, ctx.rotation);
+      out += line(inner.x, inner.y, outer.x, outer.y,
+        'stroke:rgba(200,200,200,0.45);stroke-width:1.2');
+      const lp = this._polar(R.outerRim + 5, a.longitude, ctx.rotation);
+      out += text(lp.x, lp.y, label,
+        'fill:#4fc1ff;font-size:11px;font-weight:400');
     }
     return out;
   }
@@ -164,26 +203,38 @@ export class ChartWheel {
   _aspects(chart, ctx) {
     const aspects = chart.aspects || [];
     if (!aspects.length) return '';
-    // Build a key→longitude lookup per ring so cross-aspects resolve correctly.
     const rings = chart.rings || [];
-    const ring0 = new Map((rings[0] ? rings[0].points : []).map((p) => [p.key, p]));
-    const ring1 = new Map((rings[1] ? rings[1].points : []).map((p) => [p.key, p]));
     const isBiWheel = rings.length > 1;
+
+    const buildMap = (pts, dotR) => {
+      const m = new Map();
+      for (const p of (pts || [])) m.set(p.key, { lon: p.longitude, dotR });
+      return m;
+    };
+
+    let map0, map1;
+    if (isBiWheel) {
+      map0 = buildMap(rings[0].points, PLANET_RADIUS.inner - LEADER_LEN);
+      map1 = buildMap(rings[1].points, PLANET_RADIUS.outer - LEADER_LEN);
+    } else {
+      map0 = buildMap(rings[0] ? rings[0].points : [], PLANET_RADIUS.single - LEADER_LEN);
+      map1 = new Map();
+    }
 
     let out = '';
     for (const asp of aspects) {
-      const p1 = ring0.get(asp.point1) || ring1.get(asp.point1);
-      const p2 = isBiWheel
-        ? (ring1.get(asp.point2) || ring0.get(asp.point2))
-        : (ring0.get(asp.point2) || ring1.get(asp.point2));
-      if (!p1 || !p2) continue;
-      const a = this._polar(R.hub - 2, p1.longitude, ctx.rotation);
-      const b = this._polar(R.hub - 2, p2.longitude, ctx.rotation);
-      const klass = ASPECT_CLASS[asp.aspectKey] || 'minor';
-      const color = ASPECT_COLOR[klass] || ASPECT_COLOR.minor;
-      const opacity = (0.25 + 0.55 * (asp.strength || 0)).toFixed(2);
-      const width = klass === 'minor' ? 0.8 : 1.4;
-      const dash = klass === 'minor' ? 'stroke-dasharray:3 3;' : '';
+      const i1 = map0.get(asp.point1) || map1.get(asp.point1);
+      const i2 = isBiWheel
+        ? (map1.get(asp.point2) || map0.get(asp.point2))
+        : (map0.get(asp.point2) || map1.get(asp.point2));
+      if (!i1 || !i2) continue;
+      const a = this._polar(i1.dotR, i1.lon, ctx.rotation);
+      const b = this._polar(i2.dotR, i2.lon, ctx.rotation);
+      const color = ASPECT_TYPE_COLOR[asp.aspectKey] || '#555';
+      const isMajor = ['conjunction', 'opposition', 'trine', 'square', 'sextile'].includes(asp.aspectKey);
+      const opacity = (0.35 + 0.45 * (asp.strength || 0)).toFixed(2);
+      const width = isMajor ? 1.2 : 0.6;
+      const dash = isMajor ? '' : 'stroke-dasharray:3 3;';
       out += line(a.x, a.y, b.x, b.y,
         `stroke:${color};stroke-width:${width};stroke-opacity:${opacity};${dash}`);
     }
@@ -205,37 +256,40 @@ export class ChartWheel {
   _planets(points, radius, ctx, ringRole) {
     if (!points || !points.length) return '';
     const plotted = points.filter((p) => p.kind === 'body' || p.kind === 'point');
-    const display = spreadAngles(plotted.map((p) => p.longitude), 9);
-    const ringColor = ringRole === 'outer' ? '#f0cd7a' : '#ece9ff';
+    const display = spreadAngles(plotted.map((p) => p.longitude), 11);
+    const dotR = radius - LEADER_LEN;
 
     let out = '';
     plotted.forEach((p, i) => {
-      const trueP = this._polar(R.zodiacInner - 4, p.longitude, ctx.rotation);
+      const pColor = PLANET_COLOR[p.key] || '#d4d4d4';
+      const pLabel = PLANET_LABEL[p.key] || p.glyph;
       const dispLong = display[i];
       const glyphPos = this._polar(radius, dispLong, ctx.rotation);
-      // leader from true degree to (possibly spread) glyph
-      const leadStart = this._polar(R.zodiacInner - 6, p.longitude, ctx.rotation);
-      const leadEnd = this._polar(radius + 13, dispLong, ctx.rotation);
-      out += line(leadStart.x, leadStart.y, leadEnd.x, leadEnd.y,
-        'stroke:rgba(179,170,214,0.35);stroke-width:0.8');
-      out += `<circle cx="${trueP.x.toFixed(1)}" cy="${trueP.y.toFixed(1)}" r="1.6" style="fill:${ringColor};opacity:0.7"/>`;
-      // glyph
-      out += text(glyphPos.x, glyphPos.y, p.glyph,
-        `fill:${ringColor};font-size:20px`, 'svg-glyph');
-      // degree label
-      const degPos = this._polar(radius - 16, dispLong, ctx.rotation);
-      const label = `${Math.floor(p.degreeInSign)}°${p.retrograde ? ' ℞' : ''}`;
-      out += text(degPos.x, degPos.y, label,
-        `fill:${p.retrograde ? '#e06a78' : 'rgba(179,170,214,0.8)'};font-size:9px`);
+      const dotPos = this._polar(dotR, p.longitude, ctx.rotation);
+      const leaderStart = this._polar(radius - 14, dispLong, ctx.rotation);
+
+      out += `<g data-planet-key="${p.key}" data-planet-ring="${ringRole}" style="cursor:pointer">`;
+
+      out += line(leaderStart.x, leaderStart.y, dotPos.x, dotPos.y,
+        `stroke:${pColor};stroke-opacity:0.30;stroke-width:0.6`);
+
+      out += `<circle cx="${f(dotPos.x)}" cy="${f(dotPos.y)}" r="2" style="fill:${pColor};opacity:0.70"/>`;
+
+      out += text(glyphPos.x, glyphPos.y, pLabel,
+        `fill:${pColor};font-size:20px;font-weight:400`);
+
+      const signChar = this._signShort(p.longitude);
+      const degPos = this._polar(radius + 13, dispLong, ctx.rotation);
+      const retroMark = p.retrograde ? '℞' : '';
+      const degLabel = `${signChar}${Math.floor(p.degreeInSign)}°${retroMark}`;
+      out += text(degPos.x, degPos.y, degLabel,
+        `fill:${p.retrograde ? '#f44747' : 'rgba(130,130,130,0.60)'};font-size:8.5px;font-weight:400`);
+
+      out += '</g>';
     });
     return out;
   }
 
-  _hub() {
-    return circle(CX, CY, R.hub, 'fill:rgba(8,7,16,0.35);stroke:rgba(180,160,235,0.25);stroke-width:1');
-  }
-
-  /** Annular-sector path used for the tinted zodiac band. */
   _sector(ri, ro, a0, a1, rotation, style) {
     const p1 = this._polar(ro, a0, rotation);
     const p2 = this._polar(ro, a1, rotation);
@@ -252,50 +306,30 @@ export class ChartWheel {
   }
 }
 
-// —— small SVG string helpers ————————————————————————————————————
+// —— SVG helpers ——————————————————————————————————————————————————
 
 function f(n) { return n.toFixed(2); }
+function circle(cx, cy, r, style) { return `<circle cx="${cx}" cy="${cy}" r="${r}" style="${style}"/>`; }
+function line(x1, y1, x2, y2, style) { return `<line x1="${f(x1)}" y1="${f(y1)}" x2="${f(x2)}" y2="${f(y2)}" style="${style}"/>`; }
+function text(x, y, content, style) { return `<text x="${f(x)}" y="${f(y)}" text-anchor="middle" dominant-baseline="central" style="${style}">${escapeXml(content)}</text>`; }
+function escapeXml(s) { return String(s).replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c])); }
 
-function circle(cx, cy, r, style) {
-  return `<circle cx="${cx}" cy="${cy}" r="${r}" style="${style}"/>`;
-}
-
-function line(x1, y1, x2, y2, style) {
-  return `<line x1="${f(x1)}" y1="${f(y1)}" x2="${f(x2)}" y2="${f(y2)}" style="${style}"/>`;
-}
-
-function text(x, y, content, style, className = '') {
-  return `<text x="${f(x)}" y="${f(y)}" text-anchor="middle" dominant-baseline="central" class="${className}" style="${style}">${escapeXml(content)}</text>`;
-}
-
-function escapeXml(s) {
-  return String(s).replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));
-}
-
-/** Circular midpoint of two longitudes along the shortest arc. */
 function midLongitude(a, b) {
   let d = ((b - a) % 360 + 540) % 360 - 180;
   return ((a + d / 2) % 360 + 360) % 360;
 }
 
-/**
- * Spread a set of longitudes so adjacent glyphs keep at least `minSep` degrees,
- * preserving order. Returns display longitudes parallel to the input array.
- */
 function spreadAngles(longitudes, minSep) {
   const order = longitudes
     .map((lon, idx) => ({ lon: ((lon % 360) + 360) % 360, idx }))
     .sort((a, b) => a.lon - b.lon);
-
   const disp = order.map((o) => o.lon);
   const n = disp.length;
   if (n > 1) {
     for (let pass = 0; pass < 3; pass += 1) {
       for (let i = 1; i < n; i += 1) {
-        const gap = disp[i] - disp[i - 1];
-        if (gap < minSep) disp[i] = disp[i - 1] + minSep;
+        if (disp[i] - disp[i - 1] < minSep) disp[i] = disp[i - 1] + minSep;
       }
-      // wrap correction between last and first
       const wrapGap = disp[0] + 360 - disp[n - 1];
       if (wrapGap < minSep) {
         const shift = (minSep - wrapGap) / 2;
@@ -306,7 +340,6 @@ function spreadAngles(longitudes, minSep) {
       }
     }
   }
-
   const result = new Array(longitudes.length);
   order.forEach((o, i) => { result[o.idx] = disp[i] % 360; });
   return result;

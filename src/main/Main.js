@@ -39,7 +39,7 @@ class Main {
       height: 920,
       minWidth: 1100,
       minHeight: 720,
-      backgroundColor: '#0d0b1a',
+      backgroundColor: '#1e1e1e',
       title: 'Myst · 神秘学星盘工作室',
       show: false,
       webPreferences: {

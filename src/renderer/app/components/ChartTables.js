@@ -4,12 +4,14 @@
 
 import { h } from '../Dom.js';
 
-const ELEMENT_COLOR = { fire: '#e8714a', earth: '#c2a36a', air: '#6fb6e8', water: '#6f78e8' };
+const ELEMENT_COLOR = { fire: '#ce9178', earth: '#6a9955', air: '#9cdcfe', water: '#4ec9b0' };
 const ASPECT_COLOR = {
-  conjunction: '#d9b25b', opposition: '#e06a78', square: '#e06a78',
-  trine: '#5bd6a0', sextile: '#5bd6a0',
+  conjunction: '#dcdcaa', opposition: '#f44747', square: '#d97340',
+  trine: '#4ec9b0', sextile: '#56b6c2', quincunx: '#c586c0',
+  sesquiquadrate: '#d19a66', semisquare: '#e06c75',
+  semisextile: '#98c379', quintile: '#7c7ce0',
 };
-const minorColor = '#8a82b0';
+const minorColor = '#6e6e6e';
 
 function pointGlyph(key, reference) {
   const meta = reference.points[key];
@@ -111,7 +113,7 @@ export function distributionsPanel(chart, reference) {
   ));
   const modalityBars = Object.entries(dist.modalities).map(([key, count]) => bar(
     reference.modalities[key] ? reference.modalities[key].nameZh : key,
-    count, modalityTotal, '#8a6bff',
+    count, modalityTotal, '#569cd6',
   ));
 
   return panel('元素与模式 · Distribution', [

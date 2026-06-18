@@ -30,10 +30,10 @@
 .btn:active { transform: translateY(0); }
 .btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
 .btn-primary {
-  background: linear-gradient(120deg, var(--accent), var(--accent-strong));
-  color: #2a1f06; border-color: transparent; font-weight: 600;
+  background: var(--accent-violet);
+  color: #fff; border-color: transparent; font-weight: 600;
 }
-.btn-primary:hover { box-shadow: 0 6px 20px rgba(217, 178, 91, 0.4); }
+.btn-primary:hover { background: var(--accent); box-shadow: 0 4px 16px rgba(79, 193, 255, 0.35); }
 .btn-ghost { background: transparent; border-color: var(--border-soft); }
 .btn-danger { border-color: rgba(224, 106, 120, 0.5); color: var(--danger); background: transparent; }
 .btn-danger:hover { background: rgba(224, 106, 120, 0.12); border-color: var(--danger); }
@@ -52,8 +52,8 @@
   transition: var(--transition); width: 100%;
 }
 .input:focus, .select:focus, .textarea:focus {
-  outline: none; border-color: var(--accent-violet);
-  box-shadow: 0 0 0 3px var(--accent-violet-soft);
+  outline: none; border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(79, 193, 255, 0.2);
 }
 .textarea { resize: vertical; min-height: 64px; }
 .datetime-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
@@ -62,7 +62,7 @@
   border: none; background: transparent; color: var(--text-secondary);
   padding: 7px 14px; border-radius: 10px; cursor: pointer; transition: var(--transition);
 }
-.segmented button.is-active { background: var(--accent-violet); color: #fff; }
+.segmented button.is-active { background: var(--accent); color: #1e1e1e; font-weight: 600; }
 
 /* City picker dropdown */
 .combo { position: relative; }
@@ -73,7 +73,7 @@
   max-height: 240px; overflow: auto;
 }
 .combo-option { padding: 9px 12px; cursor: pointer; display: flex; justify-content: space-between; gap: 12px; }
-.combo-option:hover, .combo-option.is-active { background: var(--accent-violet-soft); }
+.combo-option:hover, .combo-option.is-active { background: rgba(79, 193, 255, 0.10); }
 .combo-option .meta { color: var(--text-muted); font-size: 12px; }
 
 /* —— Profile list ——————————————————————————————————————————— */
@@ -84,14 +84,14 @@
   background: var(--bg-elevated); cursor: pointer; transition: var(--transition);
 }
 .profile-card:hover { border-color: var(--accent); transform: translateX(2px); }
-.profile-card.is-selected { border-color: var(--accent-violet); box-shadow: var(--shadow-glow); }
+.profile-card.is-selected { border-color: var(--accent); box-shadow: var(--shadow-glow); }
 .avatar {
   width: 46px; height: 46px; border-radius: 14px; display: grid; place-items: center;
   font-size: 18px; font-weight: 700; flex-shrink: 0;
 }
 .avatar.male { background: rgba(111, 182, 232, 0.2); color: var(--element-air); }
 .avatar.female { background: rgba(224, 106, 120, 0.2); color: var(--danger); }
-.avatar.other { background: rgba(138, 107, 255, 0.2); color: var(--accent-violet); }
+.avatar.other { background: rgba(79, 193, 255, 0.15); color: var(--accent); }
 .profile-card .who { flex: 1; min-width: 0; }
 .profile-card .who .name { font-weight: 600; }
 .profile-card .who .sub { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
@@ -107,13 +107,43 @@
 .chip .glyph { font-family: var(--font-glyph); }
 .badge { font-size: 11px; padding: 2px 8px; border-radius: 6px; background: rgba(255,255,255,0.06); }
 
-/* —— Chart canvas ——————————————————————————————————————————— */
+/* —— Chart canvas (interactive: zoom / pan) ———————————————— */
 .chart-canvas-wrap {
-  background: radial-gradient(circle at 50% 45%, rgba(30, 25, 58, 0.6), rgba(8, 7, 16, 0.4));
+  position: relative;
+  background: #111;
   border: 1px solid var(--border-soft); border-radius: var(--radius-lg);
-  padding: 12px; display: grid; place-items: center; box-shadow: var(--shadow-soft);
+  overflow: hidden; cursor: grab;
+  box-shadow: var(--shadow-soft);
 }
-.chart-canvas-wrap svg { width: 100%; height: auto; max-width: 720px; }
+.chart-canvas-wrap:active { cursor: grabbing; }
+
+.chart-svg-host svg { display: block; width: 100%; height: auto; }
+
+.chart-overlay-btn {
+  position: absolute; bottom: 10px; right: 10px; z-index: 10;
+  opacity: 0.6; font-size: 11px; padding: 4px 10px;
+}
+.chart-overlay-btn:hover { opacity: 1; }
+
+/* Planet detail floating card */
+.planet-detail {
+  position: absolute; top: 10px; right: 10px; z-index: 10;
+  width: 210px; max-height: 340px; overflow-y: auto;
+  background: var(--bg-panel-solid); border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md); padding: 12px 14px;
+  box-shadow: var(--shadow-soft);
+}
+.planet-detail.hidden { display: none; }
+
+/* —— Chart data sidebar ——————————————————————————————————— */
+.chart-data-sidebar {
+  max-height: min(700px, 80vh);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
 .chart-title-row { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 6px; flex-wrap: wrap; gap: 8px; }
 .chart-title-row h2 { font-size: 22px; }
 .chart-title-row .sub { color: var(--text-muted); font-size: 12px; }
@@ -129,7 +159,7 @@
   letter-spacing: 0.08em; text-transform: uppercase;
 }
 .data-table td { padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,0.04); }
-.data-table tr:hover td { background: rgba(138, 107, 255, 0.06); }
+.data-table tr:hover td { background: rgba(79, 193, 255, 0.05); }
 .data-table .glyph { font-family: var(--font-glyph); font-size: 16px; }
 .aspect-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 8px; vertical-align: middle; }
 
@@ -145,7 +175,7 @@
   border-bottom: 2px solid transparent; transition: var(--transition); font-size: 13px;
 }
 .tab:hover { color: var(--text-primary); }
-.tab.is-active { color: var(--accent); border-bottom-color: var(--accent); }
+.tab.is-active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 500; }
 
 /* Empty states & toast */
 .empty-state { text-align: center; padding: 60px 20px; color: var(--text-muted); }
