@@ -1,4 +1,86 @@
 {
+  "primitives": {
+    "unit": 4,
+    "typeBase": 13,
+    "typeScale": 1.2
+  },
+
+  "colors": {
+    "bgBase":       "#1e1e1e",
+    "bgDeep":       "#141414",
+    "bgPanel":      "rgba(37, 37, 38, 0.97)",
+    "bgPanelSolid": "#252526",
+    "bgElevated":   "rgba(45, 45, 45, 0.92)",
+    "bgInput":      "rgba(28, 28, 28, 0.88)",
+    "borderSoft":   "rgba(70, 70, 70, 0.55)",
+    "borderStrong": "rgba(110, 110, 110, 0.65)",
+    "textPrimary":  "#d4d4d4",
+    "textSecondary":"#9d9d9d",
+    "textMuted":    "#6d6d6d",
+    "accent":       "#4fc1ff",
+    "accentStrong": "#7fdcff",
+    "accentViolet": "#569cd6",
+    "accentVioletSoft": "rgba(86, 156, 214, 0.15)",
+    "danger":       "#f44747",
+    "success":      "#4ec9b0",
+    "elementFire":  "#ce9178",
+    "elementEarth": "#6a9955",
+    "elementAir":   "#9cdcfe",
+    "elementWater": "#4ec9b0",
+    "aspectMajorHarmonic": "#4ec9b0",
+    "aspectMajorTension":  "#f44747",
+    "aspectConjunction":   "#dcdcaa",
+    "aspectMinor":         "#6e6e6e"
+  },
+
+  "radii": {
+    "sm": "5px",
+    "md": "8px",
+    "lg": "12px",
+    "full": "999px"
+  },
+
+  "shadows": {
+    "soft": "0 4px 18px rgba(0,0,0,0.6)",
+    "glow": "0 0 16px rgba(79,193,255,0.22)"
+  },
+
+  "layout": {
+    "sidebarWidth": 228,
+    "chartCanvasMaxWidth": 480,
+    "workbenchGridColumns": "1fr 1fr",
+    "responsiveBreakpoint": 1200
+  },
+
+  "chart": {
+    "svgSize": 740,
+    "radii": {
+      "outerRim": 364,
+      "zodiacOuter": 356,
+      "zodiacInner": 305,
+      "houseOuter": 305,
+      "houseNumber": 130
+    },
+    "planetRadius": { "single": 256, "inner": 216, "outer": 272 },
+    "leaderLength": 32,
+    "planetColors": {
+      "sun": "#dcdcaa", "moon": "#9cdcfe", "mercury": "#4ec9b0",
+      "venus": "#ce9178", "mars": "#f44747", "jupiter": "#c586c0",
+      "saturn": "#6a9955", "uranus": "#569cd6", "neptune": "#4fc1ff",
+      "pluto": "#d16969", "chiron": "#b5cea8", "northnode": "#9cdcfe",
+      "southnode": "#808080", "lilith": "#c586c0"
+    },
+    "aspectColors": {
+      "conjunction": "#dcdcaa", "opposition": "#f44747", "trine": "#4ec9b0",
+      "square": "#d97340", "sextile": "#56b6c2", "quincunx": "#c586c0",
+      "sesquiquadrate": "#d19a66", "semisquare": "#e06c75",
+      "semisextile": "#98c379", "quintile": "#7c7ce0"
+    },
+    "elementColors": {
+      "fire": "#ce9178", "earth": "#6a9955", "air": "#9cdcfe", "water": "#4ec9b0"
+    }
+  },
+
   "window": {
     "width": 1440,
     "height": 920,
@@ -7,101 +89,5 @@
     "backgroundColor": "#1e1e1e"
   },
 
-  "theme": {
-    "bgBase":           "#1e1e1e",
-    "bgDeep":           "#141414",
-    "bgPanel":          "rgba(37, 37, 38, 0.97)",
-    "bgPanelSolid":     "#252526",
-    "bgElevated":       "rgba(45, 45, 45, 0.92)",
-    "bgInput":          "rgba(28, 28, 28, 0.88)",
-
-    "borderSoft":       "rgba(70, 70, 70, 0.55)",
-    "borderStrong":     "rgba(110, 110, 110, 0.65)",
-
-    "textPrimary":      "#d4d4d4",
-    "textSecondary":    "#9d9d9d",
-    "textMuted":        "#6d6d6d",
-
-    "accent":           "#4fc1ff",
-    "accentStrong":     "#7fdcff",
-    "accentViolet":     "#569cd6",
-    "accentVioletSoft": "rgba(86, 156, 214, 0.15)",
-    "danger":           "#f44747",
-    "success":          "#4ec9b0",
-
-    "elementFire":      "#ce9178",
-    "elementEarth":     "#6a9955",
-    "elementAir":       "#9cdcfe",
-    "elementWater":     "#4ec9b0",
-
-    "aspectMajorHarmonic": "#4ec9b0",
-    "aspectMajorTension":  "#f44747",
-    "aspectConjunction":   "#dcdcaa",
-    "aspectMinor":         "#6e6e6e",
-
-    "radiusSm":         "5px",
-    "radiusMd":         "8px",
-    "radiusLg":         "12px",
-    "shadowSoft":       "0 4px 18px rgba(0, 0, 0, 0.6)",
-    "shadowGlow":       "0 0 16px rgba(79, 193, 255, 0.22)",
-    "transition":       "140ms cubic-bezier(0.4, 0, 0.2, 1)"
-  },
-
-  "layout": {
-    "sidebarWidth":          228,
-    "chartCanvasMaxWidth":   420,
-    "workbenchGridColumns":  "1fr 1fr",
-    "responsiveBreakpoint":  1200
-  },
-
-  "chart": {
-    "svgSize": 770,
-    "radii": {
-      "outerRim":     364,
-      "zodiacOuter":  356,
-      "zodiacInner":  305,
-      "houseOuter":   305,
-      "houseNumber":  130
-    },
-    "planetRadius": {
-      "single": 256,
-      "inner":  216,
-      "outer":  272
-    },
-    "leaderLength": 32,
-    "planetColors": {
-      "sun":       "#dcdcaa",
-      "moon":      "#9cdcfe",
-      "mercury":   "#4ec9b0",
-      "venus":     "#ce9178",
-      "mars":      "#f44747",
-      "jupiter":   "#c586c0",
-      "saturn":    "#6a9955",
-      "uranus":    "#569cd6",
-      "neptune":   "#4fc1ff",
-      "pluto":     "#d16969",
-      "chiron":    "#b5cea8",
-      "northnode": "#9cdcfe",
-      "southnode": "#808080",
-      "lilith":    "#c586c0"
-    },
-    "aspectColors": {
-      "conjunction":    "#dcdcaa",
-      "opposition":     "#f44747",
-      "trine":          "#4ec9b0",
-      "square":         "#d97340",
-      "sextile":        "#56b6c2",
-      "quincunx":       "#c586c0",
-      "sesquiquadrate": "#d19a66",
-      "semisquare":     "#e06c75",
-      "semisextile":    "#98c379",
-      "quintile":       "#7c7ce0"
-    },
-    "elementColors": {
-      "fire":  "#ce9178",
-      "earth": "#6a9955",
-      "air":   "#9cdcfe",
-      "water": "#4ec9b0"
-    }
-  }
+  "locale": "zh"
 }

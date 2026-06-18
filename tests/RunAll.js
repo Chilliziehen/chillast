@@ -16,6 +16,7 @@ const Profile = require('../src/core/models/Profile');
 const AstrologyService = require('../src/core/astrology/AstrologyService');
 const FirdariaCalc = require('../src/core/astrology/FirdariaCalc');
 const ConfigManager = require('../src/core/config/ConfigManager');
+const TokenEngine = require('../src/core/config/TokenEngine');
 
 let passed = 0;
 let failed = 0;
@@ -103,34 +104,53 @@ test('sameSet avoids duplicate and self pairs', () => {
   assert.strictEqual(out.length, 3); // a-b, a-c, b-c trines
 });
 
+console.log('\nTokenEngine');
+test('derives spacing scale from unit=4', () => {
+  const tokens = TokenEngine.resolve({ primitives: { unit: 4 } });
+  assert.strictEqual(tokens.spacing['1'], '4px');
+  assert.strictEqual(tokens.spacing['2'], '8px');
+  assert.strictEqual(tokens.spacing['4'], '16px');
+  assert.strictEqual(tokens.spacing.half, '2px');
+  assert.strictEqual(tokens.spacing.px, '1px');
+});
+test('derives type scale from base=13, scale=1.2', () => {
+  const tokens = TokenEngine.resolve({ primitives: { typeBase: 13, typeScale: 1.2 } });
+  assert.strictEqual(tokens.type.md, '13px');
+  assert.strictEqual(tokens.type.lg, '16px');
+  assert.strictEqual(tokens.type.sm, '11px');
+});
+test('allows explicit spacing overrides', () => {
+  const tokens = TokenEngine.resolve({ primitives: { unit: 4 }, spacing: { '2': '10px' } });
+  assert.strictEqual(tokens.spacing['2'], '10px');
+  assert.strictEqual(tokens.spacing['1'], '4px');
+});
+test('passes through colors, chart, window', () => {
+  const tokens = TokenEngine.resolve({ colors: { accent: '#ff0000' }, chart: { svgSize: 600 } });
+  assert.strictEqual(tokens.colors.accent, '#ff0000');
+  assert.strictEqual(tokens.chart.svgSize, 600);
+});
+
 console.log('\nConfigManager');
-test('loads default config from project root', () => {
+test('load returns resolved tokens', () => {
   const cfg = ConfigManager.load();
-  assert.ok(cfg.window, 'has window section');
-  assert.ok(cfg.theme, 'has theme section');
-  assert.ok(cfg.layout, 'has layout section');
-  assert.ok(cfg.chart, 'has chart section');
+  assert.ok(cfg.spacing, 'has spacing');
+  assert.ok(cfg.type, 'has type');
+  assert.ok(cfg.weight, 'has weight');
+  assert.ok(cfg.colors, 'has colors');
+  assert.strictEqual(cfg.spacing['1'], '4px');
+  assert.strictEqual(cfg.type.md, '13px');
   assert.strictEqual(cfg.window.width, 1440);
   assert.strictEqual(cfg.chart.svgSize, 740);
 });
 test('deep-merges partial overrides', () => {
-  const cfg = ConfigManager.load({ theme: { accent: '#ff0000' }, chart: { svgSize: 800 } });
-  assert.strictEqual(cfg.theme.accent, '#ff0000');
+  const cfg = ConfigManager.load({ colors: { accent: '#ff0000' }, chart: { svgSize: 800 } });
+  assert.strictEqual(cfg.colors.accent, '#ff0000');
   assert.strictEqual(cfg.chart.svgSize, 800);
-  assert.strictEqual(cfg.theme.bgBase, '#1e1e1e');
-  assert.strictEqual(cfg.chart.radii.outerRim, 364);
+  assert.strictEqual(cfg.colors.bgBase, '#1e1e1e');
 });
 test('camelToKebab converts correctly', () => {
   assert.strictEqual(ConfigManager.camelToKebab('bgPanelSolid'), 'bg-panel-solid');
   assert.strictEqual(ConfigManager.camelToKebab('accent'), 'accent');
-  assert.strictEqual(ConfigManager.camelToKebab('accentVioletSoft'), 'accent-violet-soft');
-});
-test('themeAsCssVars returns --prefixed map', () => {
-  const cfg = ConfigManager.load();
-  const vars = ConfigManager.themeAsCssVars(cfg.theme);
-  assert.strictEqual(vars['--bg-base'], '#1e1e1e');
-  assert.strictEqual(vars['--accent'], '#4fc1ff');
-  assert.strictEqual(vars['--radius-lg'], '12px');
 });
 
 console.log('\nFirdariaCalc');

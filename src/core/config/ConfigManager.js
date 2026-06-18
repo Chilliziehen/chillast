@@ -2,6 +2,7 @@
 
 const path = require('path');
 const fs = require('fs');
+const TokenEngine = require('./TokenEngine');
 
 function deepMerge(target, source) {
   const out = { ...target };
@@ -18,18 +19,6 @@ function deepMerge(target, source) {
   return out;
 }
 
-function camelToKebab(str) {
-  return str.replace(/[A-Z]/g, (m) => '-' + m.toLowerCase());
-}
-
-function themeAsCssVars(theme) {
-  const vars = {};
-  for (const [key, value] of Object.entries(theme)) {
-    vars[`--${camelToKebab(key)}`] = String(value);
-  }
-  return vars;
-}
-
 function loadDefaults() {
   const configPath = path.resolve(__dirname, '..', '..', '..', 'config.json');
   const raw = fs.readFileSync(configPath, 'utf-8');
@@ -39,12 +28,25 @@ function loadDefaults() {
 const ConfigManager = {
   load(overrides) {
     const defaults = loadDefaults();
-    if (!overrides) return defaults;
-    return deepMerge(defaults, overrides);
+    const merged = overrides ? deepMerge(defaults, overrides) : defaults;
+    return TokenEngine.resolve(merged);
   },
 
-  camelToKebab,
-  themeAsCssVars,
+  loadRaw(overrides) {
+    const defaults = loadDefaults();
+    return overrides ? deepMerge(defaults, overrides) : defaults;
+  },
+
+  camelToKebab: TokenEngine.camelToKebab,
+
+  themeAsCssVars(colors) {
+    const vars = {};
+    for (const [key, value] of Object.entries(colors)) {
+      vars[`--${TokenEngine.camelToKebab(key)}`] = String(value);
+    }
+    return vars;
+  },
+
   deepMerge,
 };
 
