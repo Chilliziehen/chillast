@@ -11,7 +11,8 @@ const SVG_SIZE = 740;
 
 const RING_LEGEND = {
   primary: '本命 / 主体', secondary: '次体', transit: '行运',
-  progressed: '推运', composite: '组合',
+  progressed: '推运', composite: '组合', tertiary: '三限',
+  solarArc: '太阳弧', profection: '小限', relocation: '重置',
 };
 
 export function renderChartResult(container, chart, reference) {

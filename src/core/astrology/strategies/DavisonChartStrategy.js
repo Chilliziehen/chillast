@@ -32,9 +32,9 @@ class DavisonChartStrategy extends ChartStrategy {
     return this._assemble({
       meta: {
         type: 'davison',
-        typeNameZh: '戴维森盘',
+        typeNameZh: '时空盘',
         title: `${primary.nameZh || ''} ⊕ ${secondary.nameZh || ''}`,
-        subtitle: `戴维森时空中点盘 · Davison @ ${midInstant.toISOString().slice(0, 16).replace('T', ' ')} UTC`,
+        subtitle: `时空中点盘 · Davison @ ${midInstant.toISOString().slice(0, 16).replace('T', ' ')} UTC`,
         settings: this._chartSettings(settings),
         generatedAt: new Date().toISOString(),
         instantUtc: frame.instantUtc,

@@ -28,7 +28,7 @@ class CompositeChartStrategy extends ChartStrategy {
         type: 'composite',
         typeNameZh: '组合盘',
         title: `${primary.nameZh || ''} ＋ ${secondary.nameZh || ''}`,
-        subtitle: '组合中点盘 · Composite (Midpoint)',
+        subtitle: '组合盘 · Composite (Midpoint)',
         settings: this._chartSettings(settings),
         generatedAt: new Date().toISOString(),
         instantUtc: null,

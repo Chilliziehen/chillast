@@ -34,9 +34,9 @@ class ProgressedChartStrategy extends ChartStrategy {
     return this._assemble({
       meta: {
         type: 'progressed',
-        typeNameZh: '二次推运',
-        title: `${primary.nameZh || primary.nameEn || ''} · 推运`,
-        subtitle: `二次推运 · Secondary Progressions @ ${this._fmt(targetDate)}`,
+        typeNameZh: '次限',
+        title: `${primary.nameZh || primary.nameEn || ''} · 次限`,
+        subtitle: `次限推运 · Secondary Progressions @ ${this._fmt(targetDate)}`,
         settings: this._chartSettings(settings),
         generatedAt: new Date().toISOString(),
         instantUtc: progressedFrame.instantUtc,
