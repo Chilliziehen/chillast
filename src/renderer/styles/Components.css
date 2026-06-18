@@ -114,7 +114,7 @@
   border: 1px solid var(--border-soft); border-radius: var(--radius-lg);
   overflow: hidden; cursor: grab;
   box-shadow: var(--shadow-soft);
-  max-width: 560px;
+  max-width: 480px;
   margin: 0 auto;
 }
 .chart-canvas-wrap:active { cursor: grabbing; }
@@ -146,9 +146,9 @@
   overflow-y: auto;
   padding-right: 2px;
 }
-.chart-title-row { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 6px; flex-wrap: wrap; gap: 8px; }
-.chart-title-row h2 { font-size: 22px; }
-.chart-title-row .sub { color: var(--text-muted); font-size: 12px; }
+.chart-title-row { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 4px; flex-wrap: wrap; gap: 6px; }
+.chart-title-row h2 { font-size: 16px; }
+.chart-title-row .sub { color: var(--text-muted); font-size: 11px; }
 
 /* SVG glyph helpers */
 .svg-glyph { font-family: var(--font-glyph); }
@@ -217,3 +217,41 @@
   display: flex; gap: 8px; align-items: flex-end;
 }
 .location-row .field { flex: 1; }
+
+/* —— Flat data panels inside workbench data-col ———————————— */
+.data-col .panel {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  backdrop-filter: none;
+  border-bottom: 1px solid var(--border-soft);
+}
+.data-col .panel:last-child { border-bottom: none; }
+.data-col .panel-header {
+  padding: 8px 6px;
+  border-bottom: none;
+}
+.data-col .panel-header h3 {
+  font-size: 12px;
+  color: var(--text-muted);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.data-col .panel-body {
+  padding: 4px 6px 10px;
+}
+.data-col .data-table { font-size: 12px; }
+.data-col .data-table th {
+  padding: 4px 6px;
+  font-size: 10px;
+}
+.data-col .data-table td {
+  padding: 3px 6px;
+}
+.data-col .data-table .glyph { font-size: 14px; }
+.data-col .dist-row { margin-bottom: 4px; gap: 6px; }
+.data-col .dist-row span { font-size: 11px; }
+.data-col .dist-bar { height: 7px; }
+.data-col .aspect-dot { width: 7px; height: 7px; margin-right: 4px; }
+.data-col .chip { font-size: 10px; padding: 2px 6px; }
