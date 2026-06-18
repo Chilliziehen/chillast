@@ -196,7 +196,8 @@ export class ChartWorkbenchView {
         settings: { houseSystem: this.state.houseSystem, zodiac: this.state.zodiac },
         options: this._buildOptions(),
       });
-      renderChartResult(this.chartCol, this.dataCol, chart, this.ctx.reference);
+      renderChartResult(this.chartCol, this.dataCol, chart, this.ctx.reference,
+        this.ctx.config ? this.ctx.config.chart : undefined);
       notify.success(`${chart.meta.typeNameZh} 已生成`);
     } catch (err) {
       mount(this.chartCol, h('div', { class: 'empty-state' }, [

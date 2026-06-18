@@ -11,8 +11,9 @@ const RING_LEGEND = {
   solarArc: '太阳弧', profection: '小限', relocation: '重置',
 };
 
-export function renderChartResult(chartContainer, dataContainer, chart, reference) {
-  const wheel = new ChartWheel(reference);
+export function renderChartResult(chartContainer, dataContainer, chart, reference, chartConfig) {
+  const svgSize = (chartConfig && chartConfig.svgSize) || SVG_SIZE;
+  const wheel = new ChartWheel(reference, chartConfig);
 
   const svgHost = h('div', { class: 'chart-svg-host' });
   wheel.render(svgHost, chart);
@@ -28,7 +29,7 @@ export function renderChartResult(chartContainer, dataContainer, chart, referenc
     svgHost, detailPopup, resetBtn,
   ]);
 
-  let vbX = 0, vbY = 0, vbW = SVG_SIZE, vbH = SVG_SIZE;
+  let vbX = 0, vbY = 0, vbW = svgSize, vbH = svgSize;
   let svgEl = svgHost.querySelector('svg');
 
   function applyViewBox() {
@@ -37,7 +38,7 @@ export function renderChartResult(chartContainer, dataContainer, chart, referenc
   }
 
   function resetView() {
-    vbX = 0; vbY = 0; vbW = SVG_SIZE; vbH = SVG_SIZE;
+    vbX = 0; vbY = 0; vbW = svgSize; vbH = svgSize;
     applyViewBox();
   }
 
@@ -47,8 +48,8 @@ export function renderChartResult(chartContainer, dataContainer, chart, referenc
     const rect = canvasWrap.getBoundingClientRect();
     const mx = (e.clientX - rect.left) / rect.width;
     const my = (e.clientY - rect.top) / rect.height;
-    const newW = Math.min(SVG_SIZE * 2, Math.max(SVG_SIZE * 0.15, vbW * factor));
-    const newH = Math.min(SVG_SIZE * 2, Math.max(SVG_SIZE * 0.15, vbH * factor));
+    const newW = Math.min(svgSize * 2, Math.max(svgSize * 0.15, vbW * factor));
+    const newH = Math.min(svgSize * 2, Math.max(svgSize * 0.15, vbH * factor));
     vbX += (vbW - newW) * mx;
     vbY += (vbH - newH) * my;
     vbW = newW;
