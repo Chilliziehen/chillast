@@ -15,7 +15,9 @@
     "chinese": "命理分析",
     "groupProfiles": "档案",
     "groupCharts": "星盘",
-    "groupChinese": "命理"
+    "groupChinese": "命理",
+    "groupTools": "工具",
+    "solarTerms": "节气年历"
   },
   "profiles": {
     "title": "档案管理",
@@ -149,6 +151,13 @@
     "festival": "节日",
     "festivalImportant": "纪念日",
     "monthSize": "月大小"
+  },
+  "tools": {
+    "solarTermTitle": "节气年历",
+    "solarTermSub": "二十四节气精确时间查询",
+    "solarTermEmpty": "选择年份后点击「查询」查看节气。",
+    "solarTermGenerate": "✶ 查询",
+    "solarTermLoading": "正在查询节气…"
   },
   "tables": {
     "positions": "行星位置 · Positions",

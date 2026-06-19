@@ -3,14 +3,12 @@ import { ApiClient } from '../ApiClient.js';
 import { renderBaZiChart } from '../components/BaZiChart.js';
 import { fiveElementsPanel, dayMasterPanel, lunarInfoPanel, pillarDetailPanel, singlePillarPanel } from '../components/BaZiTables.js';
 import { hourPillarsPanel } from '../components/HourPillarsTable.js';
-import { renderSolarTermCalendar } from '../components/SolarTermCalendar.js';
 import { notify } from '../components/Toast.js';
 import { t } from '../I18n.js';
 
 export class ChineseAstrologyView {
   constructor(context) {
     this.ctx = context;
-    this._mode = 'bazi';
   }
 
   get title() {
@@ -25,7 +23,7 @@ export class ChineseAstrologyView {
   _draw() {
     const profiles = this.ctx.store.getState().profiles || [];
 
-    if (!profiles.length && this._mode === 'bazi') {
+    if (!profiles.length) {
       mount(this.container, h('div', { class: 'empty-state' }, [
         h('div', { class: 'big' }, '☯'),
         h('p', {}, t('chinese.needProfile')),
@@ -33,19 +31,6 @@ export class ChineseAstrologyView {
       return;
     }
 
-    const tabs = h('div', { class: 'tabs' }, [
-      h('div', { class: `tab ${this._mode === 'bazi' ? 'is-active' : ''}`, onclick: () => { this._mode = 'bazi'; this._draw(); } }, t('chinese.generate')),
-      h('div', { class: `tab ${this._mode === 'solar' ? 'is-active' : ''}`, onclick: () => { this._mode = 'solar'; this._draw(); } }, t('chinese.solarTermCalendar')),
-    ]);
-
-    if (this._mode === 'solar') {
-      this._drawSolarMode(tabs);
-    } else {
-      this._drawBaziMode(tabs, profiles);
-    }
-  }
-
-  _drawBaziMode(tabs, profiles) {
     const defaultId = this.ctx.store.getState().selectedPrimaryId || profiles[0].id;
     this.profileSelect = profileSelect(profiles, defaultId);
 
@@ -53,31 +38,11 @@ export class ChineseAstrologyView {
     this.dataCol = h('div', { class: 'data-col' });
 
     const wrap = h('div', { class: 'workbench-wrap' }, [
-      tabs,
       h('div', { class: 'workbench-bar' }, [
         labeled(t('chinese.labelProfile'), this.profileSelect),
         h('button', { class: 'btn btn-primary', onclick: () => this._compute() }, t('chinese.generate')),
       ]),
       h('div', { class: 'workbench-main' }, [this.chartCol, this.dataCol]),
-    ]);
-
-    mount(this.container, wrap);
-  }
-
-  _drawSolarMode(tabs) {
-    this.yearInput = h('input', {
-      class: 'input', type: 'number', min: 1, max: 3000,
-      value: new Date().getFullYear(), style: { width: '100px' },
-    });
-    this.solarResultHost = h('div', { class: 'p-4' }, [emptyResult()]);
-
-    const wrap = h('div', { class: 'workbench-wrap' }, [
-      tabs,
-      h('div', { class: 'workbench-bar' }, [
-        labeled(t('chart.returnYear'), this.yearInput),
-        h('button', { class: 'btn btn-primary', onclick: () => this._computeSolarTerms() }, t('chinese.solarTermCalendar')),
-      ]),
-      this.solarResultHost,
     ]);
 
     mount(this.container, wrap);
@@ -131,26 +96,6 @@ export class ChineseAstrologyView {
         pillarDetailPanel(result.bazi),
         hourPillarsPanel(result.bazi),
       ]);
-    }
-  }
-
-  async _computeSolarTerms() {
-    const year = Number(this.yearInput.value);
-    if (!year || year < 1 || year > 3000) return;
-
-    mount(this.solarResultHost, loadingResult());
-
-    try {
-      const data = await ApiClient.chinese.getSolarTerms(year);
-      mount(this.solarResultHost, h('div', { class: 'p-4' }, [
-        renderSolarTermCalendar(data),
-      ]));
-    } catch (err) {
-      mount(this.solarResultHost, h('div', { class: 'empty-state' }, [
-        h('div', { class: 'big' }, '⚠'),
-        h('p', {}, err.message),
-      ]));
-      notify.error(err.message);
     }
   }
 }
