@@ -432,6 +432,31 @@ test('missing longitude throws', () => {
   }), /缺少出生地经度/);
 });
 
+console.log('\nSolarTermCalendar');
+test('returns 24 solar terms for a year', () => {
+  const { getSolarTermCalendar } = require('../src/core/chinese/SolarTermCalendar');
+  const data = getSolarTermCalendar(2024);
+  assert.ok(data.terms.length >= 23, `got ${data.terms.length} terms`);
+  assert.ok(data.terms[0].name, 'term has name');
+  assert.ok(data.terms[0].date, 'term has date');
+  assert.strictEqual(data.year, 2024);
+});
+
+console.log('\nChineseCityDatabase');
+test('searches Chinese cities', () => {
+  const { searchChineseCities } = require('../src/core/chinese/ChineseCityDatabase');
+  const results = searchChineseCities('北京');
+  assert.ok(results.length > 0, 'found cities');
+  assert.ok(results[0].latitude > 30, 'has valid latitude');
+  assert.ok(results[0].longitude > 100, 'has valid longitude');
+  assert.ok(results[0].nameZh, 'has nameZh');
+});
+test('returns empty for no match', () => {
+  const { searchChineseCities } = require('../src/core/chinese/ChineseCityDatabase');
+  const results = searchChineseCities('xyznoexist');
+  assert.strictEqual(results.length, 0);
+});
+
 console.log(`\n${passed} passed, ${failed} failed\n`);
 if (failed > 0) {
   process.exitCode = 1;

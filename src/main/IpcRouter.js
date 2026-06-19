@@ -41,6 +41,14 @@ class IpcRouter {
 
     this._handle('chinese:reference', () => this.chinese.referenceData());
     this._handle('chinese:computeBazi', (_e, profileData) => this.chinese.computeBaZi(profileData));
+    this._handle('chinese:solarTerms', (_e, year) => {
+      const { getSolarTermCalendar } = require('../core/chinese/SolarTermCalendar');
+      return getSolarTermCalendar(year);
+    });
+    this._handle('chinese:searchCities', (_e, query) => {
+      const { searchChineseCities } = require('../core/chinese/ChineseCityDatabase');
+      return searchChineseCities(query);
+    });
 
     this._handle('cities:search', (_e, query) => this._searchCities(query));
     return this;

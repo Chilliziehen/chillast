@@ -59,8 +59,22 @@ export class CityPicker {
   async _onSearch() {
     const query = this.labelInput.value.trim();
     try {
-      const cities = await ApiClient.searchCities(query);
-      this._renderList(cities);
+      const [western, chinese] = await Promise.all([
+        ApiClient.searchCities(query),
+        ApiClient.chinese.searchCities(query).catch(() => []),
+      ]);
+      const merged = [
+        ...chinese.map((c) => ({ ...c, nameEn: c.province, country: 'CN' })),
+        ...western,
+      ];
+      const seen = new Set();
+      const unique = merged.filter((c) => {
+        const key = `${c.latitude.toFixed(1)},${c.longitude.toFixed(1)}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      this._renderList(unique);
     } catch (_) { this._closeList(); }
   }
 

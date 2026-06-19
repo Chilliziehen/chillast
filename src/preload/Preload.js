@@ -37,5 +37,7 @@ contextBridge.exposeInMainWorld('mystApi', {
   chinese: {
     getReferenceData: () => invoke('chinese:reference'),
     computeBazi: (profileData) => invoke('chinese:computeBazi', profileData),
+    getSolarTerms: (year) => invoke('chinese:solarTerms', year),
+    searchCities: (query) => invoke('chinese:searchCities', query),
   },
 });

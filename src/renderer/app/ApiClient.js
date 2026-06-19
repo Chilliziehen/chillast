@@ -31,5 +31,7 @@ export const ApiClient = {
   chinese: {
     getReferenceData: () => unwrap(api.chinese.getReferenceData()),
     computeBazi: (profileData) => unwrap(api.chinese.computeBazi(profileData)),
+    getSolarTerms: (year) => unwrap(api.chinese.getSolarTerms(year)),
+    searchCities: (query) => unwrap(api.chinese.searchCities(query)),
   },
 };
