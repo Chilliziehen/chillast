@@ -29,10 +29,18 @@
     }
   },
   "dependencies": {
+    "@langchain/anthropic": "^0.3.0",
+    "@langchain/community": "^0.3.0",
+    "@langchain/core": "^0.3.0",
+    "@langchain/openai": "^0.3.0",
     "circular-natal-horoscope-js": "^1.1.0",
+    "hnswlib-node": "^3.0.0",
+    "langchain": "^0.3.0",
     "luxon": "^3.7.2",
+    "pdf-parse": "^1.1.1",
     "swisseph-v2": "^1.0.0",
-    "tz-lookup": "^6.1.24"
+    "tz-lookup": "^6.1.24",
+    "zod": "^3.23.0"
   },
   "devDependencies": {
     "@electron/rebuild": "^4.0.0",
