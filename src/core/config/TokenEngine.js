@@ -42,6 +42,7 @@ const TokenEngine = {
       layout: raw.layout || {},
       chart: raw.chart || {},
       window: raw.window || {},
+      ephemeris: raw.ephemeris || { backend: 'swisseph' },
       locale: raw.locale || 'zh',
     };
   },

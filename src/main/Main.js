@@ -8,6 +8,8 @@ const IpcRouter = require('./IpcRouter');
 const AstrologyService = require('../core/astrology/AstrologyService');
 const ChineseAstrologyService = require('../core/chinese/ChineseAstrologyService');
 const ConfigManager = require('../core/config/ConfigManager');
+const SwissEphCore = require('../core/astrology/ephemeris/SwissEphCore');
+const ChartStrategyFactory = require('../core/astrology/ChartStrategyFactory');
 
 const fs = require('fs');
 
@@ -31,9 +33,17 @@ class Main {
     const localeName = this.config.locale || 'zh';
     const localePath = path.join(__dirname, '..', '..', 'locale', `${localeName}.json`);
     this.locale = JSON.parse(fs.readFileSync(localePath, 'utf-8'));
+
+    const ephePath = app.isPackaged
+      ? path.join(process.resourcesPath, 'assets', 'ephemeris')
+      : path.join(__dirname, '..', '..', 'assets', 'ephemeris');
+    SwissEphCore.configure({ ephePath });
+
     const baseDir = path.join(app.getPath('userData'), 'data');
     this.profileRepository = new ProfileRepository(baseDir).init();
-    this.astrologyService = new AstrologyService();
+    this.astrologyService = new AstrologyService(
+      new ChartStrategyFactory({ backend: this.config.ephemeris.backend }),
+    );
     this.chineseAstrologyService = new ChineseAstrologyService();
     new IpcRouter({
       ipcMain,
@@ -100,6 +110,10 @@ class Main {
 
     app.on('window-all-closed', () => {
       if (process.platform !== 'darwin') app.quit();
+    });
+
+    app.on('quit', () => {
+      SwissEphCore.close();
     });
   }
 }

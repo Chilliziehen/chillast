@@ -94,5 +94,9 @@
     "backgroundColor": "#1e1e1e"
   },
 
+  "ephemeris": {
+    "backend": "swisseph"
+  },
+
   "locale": "zh"
 }

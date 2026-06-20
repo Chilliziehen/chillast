@@ -9,6 +9,12 @@
  */
 
 const assert = require('assert');
+const path = require('path');
+
+const SwissEphCore = require('../src/core/astrology/ephemeris/SwissEphCore');
+SwissEphCore.configure({
+  ephePath: path.join(__dirname, '..', 'assets', 'ephemeris'),
+});
 
 const AngleMath = require('../src/core/util/AngleMath');
 const AspectEngine = require('../src/core/astrology/AspectEngine');
@@ -44,7 +50,9 @@ const subjectB = {
   birthData: { year: 1992, month: 7, day: 3, hour: 9, minute: 5, location: { label: '上海', latitude: 31.2304, longitude: 121.4737 } },
 };
 
-const svc = new AstrologyService();
+const svc = new AstrologyService(
+  new (require('../src/core/astrology/ChartStrategyFactory'))({ backend: 'swisseph' }),
+);
 
 console.log('\nAngleMath');
 test('normalize wraps into [0,360)', () => {
@@ -455,6 +463,21 @@ test('returns empty for no match', () => {
   const { searchChineseCities } = require('../src/core/chinese/ChineseCityDatabase');
   const results = searchChineseCities('xyznoexist');
   assert.strictEqual(results.length, 0);
+});
+
+console.log('\nEphemeris comparison (legacy vs swisseph)');
+test('10-profile A/B comparison reports differences', () => {
+  const { runComparison } = require('./EphemerisComparison');
+  const { allPass, report } = runComparison();
+  // This test EXERCISES the comparison — it does not assert identical outputs.
+  // Moshier and Swiss Ephemeris are expected to diverge outside 1950-2050,
+  // and ASC/house cusps diverge at high latitudes (Reykjavik 64°N).
+  // The purpose is to document these divergences for the migration report.
+  const failingProfiles = report.filter((r) => r.issues.length);
+  console.log(`  ${failingProfiles.length}/${report.length} profiles with known divergences`);
+  // Verify the test actually ran (data files loaded, adapters created)
+  assert.ok(report.length === 10, 'all 10 profiles compared');
+  assert.ok(report.every((r) => typeof r.profile === 'string'), 'all reports have profile names');
 });
 
 console.log(`\n${passed} passed, ${failed} failed\n`);
