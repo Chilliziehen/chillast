@@ -1,5 +1,6 @@
 import { h, mount } from '../Dom.js';
 import { renderMarkdown } from './MarkdownRenderer.js';
+import { t } from '../I18n.js';
 
 export class ChatPanel {
   constructor({ onInterpret, onSend, onStop }) {
@@ -18,15 +19,15 @@ export class ChatPanel {
     this._msgList = h('div', { class: 'chat-messages' });
     this._input = h('input', {
       class: 'input chat-input',
-      placeholder: '输入问题...',
+      placeholder: t('ai.inputPlaceholder'),
       onkeydown: (e) => { if (e.key === 'Enter') this._send(); },
     });
 
     const btns = this._streaming
-      ? h('button', { class: 'btn btn-sm btn-ghost', onclick: () => this._onStop() }, '停止')
+      ? h('button', { class: 'btn btn-sm btn-ghost', onclick: () => this._onStop() }, t('ai.stop'))
       : [
-        h('button', { class: 'btn btn-sm btn-primary', onclick: () => this._send() }, '发送'),
-        h('button', { class: 'btn btn-sm btn-ghost', onclick: () => this._onInterpret() }, 'AI 解读'),
+        h('button', { class: 'btn btn-sm btn-primary', onclick: () => this._send() }, t('ai.send')),
+        h('button', { class: 'btn btn-sm btn-ghost', onclick: () => this._onInterpret() }, t('ai.interpret')),
       ];
 
     this._root = h('div', { class: 'chat-panel' }, [
@@ -66,7 +67,7 @@ export class ChatPanel {
   }
 
   showToolCall(name) {
-    this._messages.push({ role: 'tool', content: `正在计算: ${name}...` });
+    this._messages.push({ role: 'tool', content: t('ai.toolCalling', { tool: name }) });
     this._render();
   }
 
