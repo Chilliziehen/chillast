@@ -497,6 +497,9 @@ test('serializes dual-ring transit chart', () => {
   assert.ok(text.length > 300, 'dual-ring output is longer');
 });
 
+const { runAiTests } = require('./AiService.test');
+runAiTests(test);
+
 console.log(`\n${passed} passed, ${failed} failed\n`);
 if (failed > 0) {
   process.exitCode = 1;
