@@ -72,13 +72,22 @@ class Main {
       knowledgeUserPath: userKnowledgePath,
     };
 
-    // Load encrypted API key from data/ai-credentials.json
     const credPath = path.join(baseDir, 'ai-credentials.json');
     if (fs.existsSync(credPath)) {
       try {
         const { safeStorage } = require('electron');
-        const encrypted = fs.readFileSync(credPath, 'utf-8');
-        const cred = JSON.parse(safeStorage.decryptString(encrypted));
+        const raw = fs.readFileSync(credPath, 'utf-8');
+        let cred;
+        // Try encrypted first, fall back to plain JSON
+        try {
+          if (safeStorage.isEncryptionAvailable()) {
+            cred = JSON.parse(safeStorage.decryptString(raw));
+          } else {
+            throw new Error('safeStorage not available');
+          }
+        } catch (_) {
+          cred = JSON.parse(raw);
+        }
         aiSettings.apiKey = cred.apiKey || '';
       } catch (_) {}
     }

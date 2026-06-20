@@ -71,12 +71,16 @@ class IpcRouter {
         const { safeStorage } = require('electron');
         const dataDir = path.join(app.getPath('userData'), 'data');
 
-        // Save API key encrypted (like before)
         if (settings.apiKey) {
           const credPath = path.join(dataDir, 'ai-credentials.json');
           if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
-          const encrypted = safeStorage.encryptString(JSON.stringify({ apiKey: settings.apiKey }));
-          fs.writeFileSync(credPath, encrypted, 'utf-8');
+          try {
+            const encrypted = safeStorage.encryptString(JSON.stringify({ apiKey: settings.apiKey }));
+            fs.writeFileSync(credPath, encrypted, 'utf-8');
+          } catch (_) {
+            // Fallback: save as plain JSON if safeStorage is unavailable
+            fs.writeFileSync(credPath, JSON.stringify({ apiKey: settings.apiKey }, null, 2), 'utf-8');
+          }
         }
 
         // Save non-secret settings as plain JSON alongside Profiles.json
