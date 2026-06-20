@@ -2,12 +2,6 @@ import { h, mount, clear } from '../Dom.js';
 import { t } from '../I18n.js';
 import { notify } from './Toast.js';
 
-/**
- * Lightweight chat UI built on the project's own Dom.js hyperscript.
- * No external dependencies. Streaming is done by directly appending
- * text to the current AI message element.
- */
-
 function escapeHtml(str) {
   return String(str)
     .replace(/&/g, '&amp;')
@@ -40,6 +34,7 @@ export class AiSidebar {
     this._sessions = [];
     this._currentAiEl = null;
     this._currentAiText = '';
+    this._statusListenerRegistered = false;
     this._build();
   }
 
@@ -47,11 +42,28 @@ export class AiSidebar {
 
   _build() {
     this._statusBanner = h('div', { class: 'ai-status-banner', style: { display: 'none' } });
-
     this._llmStatusDot = h('span', { class: 'llm-status-dot disconnected' }, '●');
     this._llmStatusText = h('span', { class: 'llm-status-text fs-xs text-muted' }, t('ai.llmDisconnected'));
 
     this._msgList = h('div', { class: 'chat-messages' });
+
+    // Session dropdown
+    this._sessionSelect = h('select', {
+      class: 'select ai-session-select',
+      onchange: (e) => this._switchSession(e.target.value),
+    }, [h('option', { value: '' }, t('ai.sessionList'))]);
+
+    this._newSessionBtn = h('button', {
+      class: 'btn btn-sm btn-ghost',
+      title: t('ai.newSession'),
+      onclick: () => this._createSession(),
+    }, '＋');
+
+    this._deleteSessionBtn = h('button', {
+      class: 'btn btn-sm btn-ghost',
+      title: t('ai.deleteSession'),
+      onclick: () => this._deleteCurrentSession(),
+    }, '✕');
 
     this._input = h('input', {
       class: 'input chat-input',
@@ -83,6 +95,11 @@ export class AiSidebar {
           this._llmStatusText,
         ]),
       ]),
+      h('div', { class: 'ai-session-toolbar' }, [
+        this._sessionSelect,
+        this._newSessionBtn,
+        this._deleteSessionBtn,
+      ]),
       this._statusBanner,
       h('div', { class: 'ai-sidebar-body' }, [
         this._msgList,
@@ -95,41 +112,85 @@ export class AiSidebar {
       ]),
     ]);
 
-    // Intro message
     this._addAiMessage('✶ AI 占星顾问已就绪\n\n你可以直接提问，或点击「AI 解读」分析当前星盘。');
-
-    // Load sessions from store
     this._loadSessions();
   }
+
+  // ── Session management ──────────────────────────────────
 
   async _loadSessions() {
     try {
       const result = await window.mystApi.ai.sessions.list();
-      if (result.ok && result.data && result.data.length) {
-        this._sessions = result.data;
-        // Load most recent session
-        const latest = result.data[0];
-        this._currentSessionId = latest.id;
-        this._renderHistory(latest.messages || []);
+      this._sessions = (result.ok && result.data) || [];
+      this._refreshSessionDropdown();
+      if (this._sessions.length) {
+        await this._switchSession(this._sessions[0].id);
       } else {
-        // Create a new session
-        const created = await window.mystApi.ai.sessions.create();
-        if (created.ok && created.data) {
-          this._currentSessionId = created.data.id;
-        }
+        await this._createSession();
       }
-    } catch (_) {
-      // Fallback: no persistence
+    } catch (_) {}
+  }
+
+  _refreshSessionDropdown() {
+    clear(this._sessionSelect);
+    for (const s of this._sessions) {
+      const label = this._sessionLabel(s);
+      this._sessionSelect.appendChild(h('option', { value: s.id, selected: s.id === this._currentSessionId }, label));
     }
   }
 
-  _renderHistory(messages) {
-    // Clear existing messages except intro
+  _sessionLabel(s) {
+    const firstUser = (s.messages || []).find((m) => m.role === 'user');
+    if (firstUser && firstUser.content) {
+      return firstUser.content.slice(0, 30);
+    }
+    return t('ai.emptySession');
+  }
+
+  async _createSession() {
+    try {
+      const result = await window.mystApi.ai.sessions.create();
+      if (result.ok && result.data) {
+        this._currentSessionId = result.data.id;
+        this._sessions.unshift(result.data);
+        this._refreshSessionDropdown();
+        this._renderMessages([]);
+      }
+    } catch (_) {}
+  }
+
+  async _switchSession(id) {
+    if (this._streaming) return;
+    try {
+      const result = await window.mystApi.ai.sessions.get(id);
+      const session = result.ok ? result.data : null;
+      this._currentSessionId = id;
+      this._renderMessages((session && session.messages) || []);
+      this._refreshSessionDropdown();
+    } catch (_) {}
+  }
+
+  async _deleteCurrentSession() {
+    if (!this._currentSessionId) return;
+    if (!confirm(t('ai.deleteSessionConfirm'))) return;
+    try {
+      await window.mystApi.ai.sessions.delete(this._currentSessionId);
+      this._sessions = this._sessions.filter((s) => s.id !== this._currentSessionId);
+      notify.success(t('ai.sessionDeleted'));
+      if (this._sessions.length) {
+        await this._switchSession(this._sessions[0].id);
+      } else {
+        await this._createSession();
+      }
+    } catch (_) {}
+  }
+
+  // ── Message rendering ───────────────────────────────────
+
+  _renderMessages(messages) {
     this._messages = [];
     clear(this._msgList);
-    // Re-add intro
     this._addAiMessage('✶ AI 占星顾问已就绪\n\n你可以直接提问，或点击「AI 解读」分析当前星盘。');
-    // Render history
     for (const m of messages) {
       if (m.role === 'user') {
         this._addUserMessage(m.content);
@@ -163,21 +224,18 @@ export class AiSidebar {
 
   _addUserMessage(text) {
     this._messages.push({ role: 'user', content: text });
-    const el = h('div', { class: 'chat-msg chat-msg-user' }, [
+    mount(this._msgList, h('div', { class: 'chat-msg chat-msg-user' }, [
       h('div', { class: 'chat-msg-body' }, text),
-    ]);
-    mount(this._msgList, el);
+    ]));
     this._scrollToBottom();
   }
 
   _addAiMessage(text) {
     this._messages.push({ role: 'ai', content: text });
-    const el = h('div', { class: 'chat-msg chat-msg-ai' }, [
+    mount(this._msgList, h('div', { class: 'chat-msg chat-msg-ai' }, [
       h('div', { class: 'chat-msg-body', html: renderMarkdown(text) }),
-    ]);
-    mount(this._msgList, el);
+    ]));
     this._scrollToBottom();
-    return el;
   }
 
   _startAiStream() {
@@ -195,9 +253,7 @@ export class AiSidebar {
     if (!this._currentAiEl) return;
     this._currentAiText += token;
     const body = this._currentAiEl.querySelector('.chat-msg-body');
-    if (body) {
-      body.innerHTML = renderMarkdown(this._currentAiText);
-    }
+    if (body) body.innerHTML = renderMarkdown(this._currentAiText);
     this._scrollToBottom();
   }
 
@@ -208,6 +264,7 @@ export class AiSidebar {
     this._currentAiText = '';
     this._currentAiEl = null;
     this._setStreaming(false);
+    this._refreshSessionDropdown();
   }
 
   _scrollToBottom() {
@@ -224,12 +281,7 @@ export class AiSidebar {
       }
     });
     window.mystApi.ai.onDone(() => {
-      const aiText = this._currentAiText;
       this._finishStreaming();
-      // Persist AI response
-      if (aiText && this._currentSessionId) {
-        window.mystApi.ai.sessions.append(this._currentSessionId, { role: 'ai', content: aiText });
-      }
     });
     window.mystApi.ai.onError(({ message }) => {
       if (this._currentAiEl) {
@@ -242,32 +294,27 @@ export class AiSidebar {
   _runChat(text) {
     this._sessionId = this._currentSessionId || String(Date.now());
     this._registerListeners();
-
-    // Append user message to session store
-    if (this._currentSessionId) {
-      window.mystApi.ai.sessions.append(this._currentSessionId, { role: 'user', content: text });
-    }
-
     this._startAiStream();
-
-    // Only send current message — IPC handler loads full history from session store
+    // Only send current message — IPC handler loads full history from session store + appends user msg
     window.mystApi.ai.chat([{ role: 'user', content: text }], { sessionId: this._sessionId });
   }
 
   _triggerInterpret() {
     if (!this._context.lastChartData) { notify.error(t('ai.noChart')); return; }
     if (this._streaming) return;
-    this._sessionId = String(Date.now());
+    this._sessionId = this._currentSessionId || String(Date.now());
     this._registerListeners();
     this._addUserMessage(t('ai.interpret'));
     this._startAiStream();
     window.mystApi.ai.interpret(this._context.lastChartData, {
       chartType: this._context.chartType,
+      sessionId: this._sessionId,
     });
   }
 
+  // ── Status ──────────────────────────────────────────────
+
   async updateStatus() {
-    // Register status change listener (once)
     if (!this._statusListenerRegistered) {
       this._statusListenerRegistered = true;
       window.mystApi.ai.onStatusChanged((status) => {
@@ -276,8 +323,7 @@ export class AiSidebar {
     }
     try {
       const result = await window.mystApi.ai.status();
-      const status = result.ok ? result.data : null;
-      this._applyStatus(status);
+      this._applyStatus(result.ok ? result.data : null);
     } catch (_) {
       this._applyStatus(null);
     }

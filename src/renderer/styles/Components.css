@@ -363,6 +363,25 @@
 .ai-interpret-btn {
   font-size: var(--fs-xs);
 }
+/* —— Session toolbar ——————————————————————————————————— */
+.ai-session-toolbar {
+  display: flex;
+  gap: var(--sp-1);
+  padding: var(--sp-1) var(--sp-2);
+  border-bottom: 1px solid var(--border-soft);
+  background: var(--bg-panel-solid);
+}
+.ai-session-select {
+  flex: 1;
+  font-size: var(--fs-xs);
+  height: 28px;
+}
+.ai-session-toolbar .btn {
+  height: 28px;
+  padding: 0 var(--sp-1);
+  font-size: var(--fs-sm);
+}
+
 .ai-status-banner {
   padding: var(--sp-2) var(--sp-3);
   background: var(--accent-violet-soft);
