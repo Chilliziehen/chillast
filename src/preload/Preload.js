@@ -65,5 +65,11 @@ contextBridge.exposeInMainWorld('mystApi', {
       import: (filePaths) => invoke('ai:knowledge:import', filePaths),
       remove: (docId) => invoke('ai:knowledge:remove', docId),
     },
+    sessions: {
+      list: () => invoke('ai:sessions:list'),
+      create: () => invoke('ai:sessions:create'),
+      delete: (id) => invoke('ai:sessions:delete', id),
+      append: (sessionId, message) => invoke('ai:sessions:append', sessionId, message),
+    },
   },
 });
