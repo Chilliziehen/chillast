@@ -8,7 +8,10 @@ const IpcRouter = require('./IpcRouter');
 const AstrologyService = require('../core/astrology/AstrologyService');
 const ChineseAstrologyService = require('../core/chinese/ChineseAstrologyService');
 const ConfigManager = require('../core/config/ConfigManager');
-const SwissEphCore = require('../core/astrology/ephemeris/SwissEphCore');
+let SwissEphCore = null;
+try {
+  SwissEphCore = require('../core/astrology/ephemeris/SwissEphCore');
+} catch (_) { /* swisseph-v2 native binding not rebuilt for Electron yet */ }
 const ChartStrategyFactory = require('../core/astrology/ChartStrategyFactory');
 const AiService = require('../core/ai/AiService');
 
@@ -38,7 +41,7 @@ class Main {
     const ephePath = app.isPackaged
       ? path.join(process.resourcesPath, 'assets', 'ephemeris')
       : path.join(__dirname, '..', '..', 'assets', 'ephemeris');
-    SwissEphCore.configure({ ephePath });
+    if (SwissEphCore) SwissEphCore.configure({ ephePath });
 
     const baseDir = path.join(app.getPath('userData'), 'data');
     this.profileRepository = new ProfileRepository(baseDir).init();
@@ -140,7 +143,7 @@ class Main {
     });
 
     app.on('quit', () => {
-      SwissEphCore.close();
+      if (SwissEphCore) SwissEphCore.close();
       if (this.aiService) this.aiService.close();
     });
   }

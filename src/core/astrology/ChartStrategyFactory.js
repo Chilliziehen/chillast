@@ -1,7 +1,10 @@
 'use strict';
 
 const HoroscopeAdapter = require('./HoroscopeAdapter');
-const SwissephAdapter = require('./ephemeris/SwissephAdapter');
+let SwissephAdapter = null;
+try {
+  SwissephAdapter = require('./ephemeris/SwissephAdapter');
+} catch (_) { /* swisseph native binding not available */ }
 const AspectEngine = require('./AspectEngine');
 
 const NatalChartStrategy = require('./strategies/NatalChartStrategy');
@@ -34,7 +37,7 @@ class ChartStrategyFactory {
     const explicitAdapter = deps && deps.EphemerisAdapter;
     const backend = (deps && deps.backend) || 'swisseph';
     const AdapterClass = explicitAdapter
-      || (backend === 'swisseph' ? SwissephAdapter : HoroscopeAdapter);
+      || (SwissephAdapter && backend !== 'horoscope' ? SwissephAdapter : HoroscopeAdapter);
     this.deps = {
       ...deps,
       EphemerisAdapter: AdapterClass,
