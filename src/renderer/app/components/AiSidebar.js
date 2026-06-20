@@ -1,152 +1,79 @@
-import { h, mount } from '../Dom.js';
+import { h, mount, clear } from '../Dom.js';
 import { t } from '../I18n.js';
 import { notify } from './Toast.js';
 
-let _deepChatLoaded = false;
+/**
+ * Lightweight chat UI built on the project's own Dom.js hyperscript.
+ * No external dependencies. Streaming is done by directly appending
+ * text to the current AI message element.
+ */
+
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+function renderMarkdown(text) {
+  let html = escapeHtml(text);
+  html = html.replace(/^### (.+)$/gm, '<h4>$1</h4>');
+  html = html.replace(/^## (.+)$/gm, '<h3>$1</h3>');
+  html = html.replace(/^# (.+)$/gm, '<h3>$1</h3>');
+  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+  html = html.replace(/^- (.+)$/gm, '<li>$1</li>');
+  html = html.replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>');
+  html = html.replace(/\n/g, '<br>');
+  return html;
+}
 
 export class AiSidebar {
   constructor({ onNavigate }) {
     this._onNavigate = onNavigate;
     this._configured = false;
     this._context = {};
-    this._interpretMode = false;
-    this._root = h('aside', { class: 'ai-sidebar' });
-    this._ready = this._build();
+    this._streaming = false;
+    this._messages = [];
+    this._currentAiEl = null;
+    this._currentAiText = '';
+    this._build();
   }
 
   get element() { return this._root; }
 
-  async _build() {
-    if (!_deepChatLoaded) {
-      await import('../../../../node_modules/deep-chat/dist/deepChat.js');      _deepChatLoaded = true;
-    }
-
+  _build() {
     this._statusBanner = h('div', { class: 'ai-status-banner', style: { display: 'none' } });
 
     this._llmStatusDot = h('span', { class: 'llm-status-dot disconnected' }, '●');
     this._llmStatusText = h('span', { class: 'llm-status-text fs-xs text-muted' }, t('ai.llmDisconnected'));
 
-    // Create deep-chat element
-    this._chatEl = document.createElement('deep-chat');
-    this._chatEl.className = 'ai-deep-chat';
+    this._msgList = h('div', { class: 'chat-messages' });
 
-    // Dark theme colors — actual hex values (deep-chat shadow DOM can't read CSS vars)
-    const C = {
-      bgPanel: '#252526',
-      bgElevated: 'rgba(45, 45, 45, 0.92)',
-      bgInput: 'rgba(28, 28, 28, 0.88)',
-      borderSoft: 'rgba(70, 70, 70, 0.55)',
-      textPrimary: '#d4d4d4',
-      textMuted: '#6d6d6d',
-      accent: '#4fc1ff',
-      accentStrong: '#7fdcff',
-      accentVioletSoft: 'rgba(86, 156, 214, 0.15)',
-      danger: '#f44747',
-    };
+    this._input = h('input', {
+      class: 'input chat-input',
+      placeholder: t('ai.inputPlaceholder'),
+      onkeydown: (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); this._send(); } },
+    });
 
-    // Style
-    this._chatEl.style = {
-      borderRadius: '0',
-      border: 'none',
-      backgroundColor: C.bgPanel,
-      color: C.textPrimary,
-      flex: '1',
-      minHeight: '0',
-      fontFamily: 'inherit',
-    };
+    this._sendBtn = h('button', {
+      class: 'btn btn-sm btn-primary',
+      onclick: () => this._send(),
+    }, t('ai.send'));
 
-    this._chatEl.textInput = {
-      placeholder: { text: t('ai.inputPlaceholder') },
-      styles: {
-        text: { color: C.textPrimary, fontSize: '13px' },
-        container: {
-          background: C.bgInput,
-          border: `1px solid ${C.borderSoft}`,
-          borderRadius: '0',
-        },
-      },
-    };
+    this._stopBtn = h('button', {
+      class: 'btn btn-sm btn-ghost',
+      style: { display: 'none' },
+      onclick: () => this._stop(),
+    }, t('ai.stop'));
 
-    this._chatEl.messageStyles = {
-      default: {
-        shared: {
-          inner: {
-            styles: {
-              color: C.textPrimary,
-              background: C.bgElevated,
-              borderRadius: '8px',
-              padding: '8px 12px',
-              fontSize: '13px',
-              lineHeight: '1.6',
-            },
-          },
-          outerContainer: { styles: { marginTop: '4px' } },
-        },
-        user: { bubble: { styles: { background: C.accentVioletSoft } } },
-        ai: { bubble: { styles: { background: C.bgElevated } } },
-      },
-    };
-
-    this._chatEl.submitButtonStyles = {
-      submit: {
-        container: {
-          default: { backgroundColor: C.accent, color: '#fff' },
-          hover: { backgroundColor: C.accentStrong },
-        },
-      },
-      stop: {
-        container: {
-          default: { backgroundColor: C.danger, color: '#fff' },
-        },
-      },
-    };
-
-    // Set dark theme via auxiliaryStyle
-    this._chatEl.auxiliaryStyle = `
-      .deep-chat {
-        background: ${C.bgPanel} !important;
-        color: ${C.textPrimary} !important;
-      }
-      .deep-chat-input-area {
-        background: ${C.bgPanel} !important;
-        border-top: 1px solid ${C.borderSoft} !important;
-      }
-      .deep-chat-input-text-area-container {
-        background: ${C.bgInput} !important;
-      }
-      .deep-chat-input-text-area::placeholder {
-        color: ${C.textMuted} !important;
-      }
-      .deep-chat-to-bottom {
-        background: ${C.bgElevated} !important;
-        color: ${C.textPrimary} !important;
-      }
-      .deep-chat-suggestion-button {
-        background: ${C.bgElevated} !important;
-        color: ${C.textPrimary} !important;
-        border: 1px solid ${C.borderSoft} !important;
-      }
-    `;
-
-    this._chatEl.historyDisabled = true;
-
-    this._chatEl.introMessage = {
-      text: '✶ AI 占星顾问\n\n直接提问，或点击下方「AI 解读」分析当前星盘',
-    };
-
-    // Unified connect handler — routes to chat or interpret based on flag
-    this._chatEl.connect = {
-      handler: (body, signals) => this._handleMessage(body, signals),
-    };
-
-    // AI Interpret button
     this._interpretBtn = h('button', {
-      class: 'btn btn-sm btn-ghost ai-interpret-btn',
+      class: 'btn btn-sm btn-ghost',
       onclick: () => this._triggerInterpret(),
     }, t('ai.interpret'));
 
-    // Populate the _root created in constructor
-    mount(this._root, [
+    this._root = h('aside', { class: 'ai-sidebar' }, [
       h('div', { class: 'ai-sidebar-header' }, [
         h('span', { class: 'fs-md fw-semibold' }, t('ai.title')),
         h('div', { class: 'llm-status-indicator' }, [
@@ -156,99 +83,139 @@ export class AiSidebar {
       ]),
       this._statusBanner,
       h('div', { class: 'ai-sidebar-body' }, [
-        this._chatEl,
-        h('div', { class: 'ai-action-row' }, [this._interpretBtn]),
+        this._msgList,
+        h('div', { class: 'chat-input-row' }, [
+          this._input,
+          this._sendBtn,
+          this._stopBtn,
+          this._interpretBtn,
+        ]),
       ]),
     ]);
 
-    // Register status change listener
+    // Intro message
+    this._addAiMessage('✶ AI 占星顾问已就绪\n\n你可以直接提问，或点击「AI 解读」分析当前星盘。');
+
     window.mystApi.ai.onStatusChanged((status) => {
       this._applyStatus(status);
     });
   }
 
-  _handleMessage(body, signals) {
-    // Check if this is an interpret trigger (user message = "AI 解读")
-    const lastMsg = body.messages && body.messages[body.messages.length - 1];
-    const isInterpret = this._interpretMode || (lastMsg && lastMsg.text === t('ai.interpret'));
-
-    if (isInterpret) {
-      this._interpretMode = false;
-      this._runInterpret(signals);
-      return;
-    }
-
-    this._runChat(body, signals);
+  _send() {
+    const text = this._input.value.trim();
+    if (!text || this._streaming) return;
+    this._input.value = '';
+    this._addUserMessage(text);
+    this._runChat(text);
   }
 
-  _runChat(body, signals) {
-    const messages = (body.messages || []).map((m) => ({
-      role: m.role === 'ai' ? 'assistant' : m.role,
-      content: m.text || '',
-    }));
+  _stop() {
+    if (this._sessionId) {
+      window.mystApi.ai.stop(this._sessionId);
+    }
+    this._finishStreaming();
+  }
 
+  _setStreaming(streaming) {
+    this._streaming = streaming;
+    this._sendBtn.style.display = streaming ? 'none' : '';
+    this._stopBtn.style.display = streaming ? '' : 'none';
+    this._input.disabled = streaming;
+  }
+
+  _addUserMessage(text) {
+    this._messages.push({ role: 'user', content: text });
+    const el = h('div', { class: 'chat-msg chat-msg-user' }, [
+      h('div', { class: 'chat-msg-body' }, text),
+    ]);
+    mount(this._msgList, el);
+    this._scrollToBottom();
+  }
+
+  _addAiMessage(text) {
+    this._messages.push({ role: 'ai', content: text });
+    const el = h('div', { class: 'chat-msg chat-msg-ai' }, [
+      h('div', { class: 'chat-msg-body', html: renderMarkdown(text) }),
+    ]);
+    mount(this._msgList, el);
+    this._scrollToBottom();
+    return el;
+  }
+
+  _startAiStream() {
+    this._currentAiText = '';
+    this._currentAiEl = h('div', { class: 'chat-msg chat-msg-ai' }, [
+      h('div', { class: 'chat-msg-body', html: '' }),
+      h('span', { class: 'chat-cursor' }, '▌'),
+    ]);
+    mount(this._msgList, this._currentAiEl);
+    this._scrollToBottom();
+    this._setStreaming(true);
+  }
+
+  _appendToken(token) {
+    if (!this._currentAiEl) return;
+    this._currentAiText += token;
+    const body = this._currentAiEl.querySelector('.chat-msg-body');
+    if (body) {
+      body.innerHTML = renderMarkdown(this._currentAiText);
+    }
+    this._scrollToBottom();
+  }
+
+  _finishStreaming() {
+    if (this._currentAiText) {
+      this._messages.push({ role: 'ai', content: this._currentAiText });
+    }
+    this._currentAiText = '';
+    this._currentAiEl = null;
+    this._setStreaming(false);
+  }
+
+  _scrollToBottom() {
+    this._msgList.scrollTop = this._msgList.scrollHeight;
+  }
+
+  _registerListeners() {
     window.mystApi.ai.removeAllListeners();
-
-    let fullText = '';
-
     window.mystApi.ai.onToken(({ type, data }) => {
       if (type === 'token') {
-        fullText += data;
-        signals.onResponse({ text: fullText, overwrite: true });
+        this._appendToken(data);
       } else if (type === 'tool-call') {
-        fullText += `\n\n_⚙ ${data.tool}..._\n`;
-        signals.onResponse({ text: fullText, overwrite: true });
+        this._appendToken(`\n\n_⚙ ${data.tool}..._\n`);
       }
     });
-
     window.mystApi.ai.onDone(() => {
-      if (!fullText) signals.onResponse({ text: '(无响应)', overwrite: true });
+      this._finishStreaming();
     });
     window.mystApi.ai.onError(({ message }) => {
-      if (!fullText) signals.onResponse({ text: `❌ ${message}`, overwrite: true });
+      if (this._currentAiEl) {
+        this._appendToken(`\n\n❌ ${message}`);
+      }
+      this._finishStreaming();
     });
-
-    window.mystApi.ai.chat(messages, {});
   }
 
-  _runInterpret(signals) {
-    if (!this._context.lastChartData) {
-      signals.onResponse({ text: t('ai.noChart'), overwrite: true });
-      return;
-    }
+  _runChat(text) {
+    this._sessionId = String(Date.now());
+    this._registerListeners();
+    this._startAiStream();
+    window.mystApi.ai.chat([{ role: 'user', content: text }], {});
+  }
 
-    window.mystApi.ai.removeAllListeners();
-
-    let fullText = '';
-
-    window.mystApi.ai.onToken(({ type, data }) => {
-      if (type === 'token') {
-        fullText += data;
-        signals.onResponse({ text: fullText, overwrite: true });
-      }
-    });
-
-    window.mystApi.ai.onDone(() => {
-      if (!fullText) signals.onResponse({ text: '(无响应)', overwrite: true });
-    });
-    window.mystApi.ai.onError(({ message }) => {
-      if (!fullText) signals.onResponse({ text: `❌ ${message}`, overwrite: true });
-    });
-
+  _triggerInterpret() {
+    if (!this._context.lastChartData) { notify.error(t('ai.noChart')); return; }
+    if (this._streaming) return;
+    this._sessionId = String(Date.now());
+    this._registerListeners();
+    this._addUserMessage(t('ai.interpret'));
+    this._startAiStream();
     window.mystApi.ai.interpret(this._context.lastChartData, {
       chartType: this._context.chartType,
     });
   }
 
-  _triggerInterpret() {
-    if (!this._context.lastChartData) { notify.error(t('ai.noChart')); return; }
-    // Set interpret flag then trigger deep-chat to send a user message
-    this._interpretMode = true;
-    this._chatEl.submitUserMessage({ text: t('ai.interpret') });
-  }
-
   async updateStatus() {
-    await this._ready;
     try {
       const result = await window.mystApi.ai.status();
       const status = result.ok ? result.data : null;

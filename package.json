@@ -34,7 +34,6 @@
     "@langchain/core": "^0.3.0",
     "@langchain/openai": "^0.3.0",
     "circular-natal-horoscope-js": "^1.1.0",
-    "deep-chat": "^2.4.2",
     "hnswlib-node": "^3.0.0",
     "langchain": "^0.3.0",
     "luxon": "^3.7.2",
