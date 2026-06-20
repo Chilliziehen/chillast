@@ -10,6 +10,7 @@
     "start": "electron .",
     "test": "node tests/RunAll.js",
     "smoke": "node tests/SmokeRenderer.js",
+    "rebuild": "electron-rebuild -f -w swisseph-v2",
     "dist": "electron-builder"
   },
   "build": {
@@ -29,9 +30,12 @@
   },
   "dependencies": {
     "circular-natal-horoscope-js": "^1.1.0",
-    "luxon": "^3.7.2"
+    "luxon": "^3.7.2",
+    "swisseph-v2": "^1.0.0",
+    "tz-lookup": "^6.1.24"
   },
   "devDependencies": {
+    "@electron/rebuild": "^4.0.0",
     "electron": "^42.4.1"
   }
 }
