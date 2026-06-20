@@ -208,6 +208,9 @@ export class ChartWorkbenchView {
         this.ctx.config ? this.ctx.config.chart : undefined);
       this._hasGenerated = true;
       this._lastChartData = chart;
+      if (this.ctx.setLastChart) {
+        this.ctx.setLastChart(chart, chart.meta && chart.meta.type);
+      }
       if (this.generateBtn) this.generateBtn.textContent = t('chart.regenerate');
       notify.success(t('chart.generated', { type: chart.meta.typeNameZh }));
     } catch (err) {

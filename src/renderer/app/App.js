@@ -54,6 +54,7 @@ export class App {
       config: this.config,
       refreshProfiles: () => this.refreshProfiles(),
       navigate: (route) => this.navigate(route),
+      setLastChart: (chartData, chartType) => this.setLastChart(chartData, chartType),
     };
     this.views.profiles = new ProfilesView(ctx);
     this.views.personal = new ChartView(ctx);
