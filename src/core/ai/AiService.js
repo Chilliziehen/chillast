@@ -17,6 +17,7 @@ class AiService {
     this._tools = [];
     this._configured = false;
     this._abortControllers = new Map();
+    this._context = null;
   }
 
   async configure(settings) {
@@ -28,7 +29,7 @@ class AiService {
     }
 
     this._chainFactory = new ChainFactory(this._mp, this._kb);
-    this._tools = await createTools(this._astrology, this._chinese);
+    this._tools = await createTools(this._astrology, this._chinese, this);
     this._configured = true;
   }
 
@@ -42,6 +43,14 @@ class AiService {
   }
 
   getKnowledgeBase() { return this._kb; }
+
+  setContext(context) {
+    this._context = context;
+  }
+
+  getContext() {
+    return this._context || {};
+  }
 
   /**
    * Interpret a chart — one-shot RAG + prompt -> stream.
