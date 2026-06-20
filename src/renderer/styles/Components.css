@@ -348,6 +348,19 @@
   display: flex;
   flex-direction: column;
 }
+.ai-deep-chat {
+  flex: 1;
+  min-height: 0;
+}
+.ai-action-row {
+  padding: var(--sp-1) var(--sp-2);
+  border-top: 1px solid var(--border-soft);
+  display: flex;
+  justify-content: flex-end;
+}
+.ai-interpret-btn {
+  font-size: var(--fs-xs);
+}
 .ai-status-banner {
   padding: var(--sp-2) var(--sp-3);
   background: var(--accent-violet-soft);

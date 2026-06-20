@@ -72,6 +72,7 @@ class IpcRouter {
           require('fs').writeFileSync(credPath, encrypted, 'utf-8');
         }
         await this.ai.configure(settings);
+        if (this.webContents) this.webContents.send('ai:statusChanged', this.ai.status());
         return { ok: true };
       });
       this._handle('ai:interpret', async (_e, chartData, options) => {
