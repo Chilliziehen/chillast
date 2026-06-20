@@ -10,6 +10,7 @@ const ChineseAstrologyService = require('../core/chinese/ChineseAstrologyService
 const ConfigManager = require('../core/config/ConfigManager');
 const SwissEphCore = require('../core/astrology/ephemeris/SwissEphCore');
 const ChartStrategyFactory = require('../core/astrology/ChartStrategyFactory');
+const AiService = require('../core/ai/AiService');
 
 const fs = require('fs');
 
@@ -45,13 +46,37 @@ class Main {
       new ChartStrategyFactory({ backend: this.config.ephemeris.backend }),
     );
     this.chineseAstrologyService = new ChineseAstrologyService();
-    new IpcRouter({
+
+    // AI Service bootstrap
+    const builtinKnowledgePath = app.isPackaged
+      ? path.join(process.resourcesPath, 'assets', 'knowledge', 'builtin')
+      : path.join(__dirname, '..', '..', 'assets', 'knowledge', 'builtin');
+    const userKnowledgePath = path.join(app.getPath('userData'), 'knowledge', 'user');
+    this.aiService = new AiService(this.astrologyService, this.chineseAstrologyService);
+    const aiSettings = {
+      ...(this.config.ai || {}),
+      knowledgeBuiltinPath: builtinKnowledgePath,
+      knowledgeUserPath: userKnowledgePath,
+    };
+    const credPath = path.join(app.getPath('userData'), 'ai-credentials.json');
+    if (fs.existsSync(credPath)) {
+      try {
+        const { safeStorage } = require('electron');
+        const encrypted = fs.readFileSync(credPath, 'utf-8');
+        const cred = JSON.parse(safeStorage.decryptString(encrypted));
+        aiSettings.apiKey = cred.apiKey || '';
+      } catch (_) {}
+    }
+    this.aiService.configure(aiSettings).catch(() => {});
+
+    this.router = new IpcRouter({
       ipcMain,
       profileRepository: this.profileRepository,
       astrologyService: this.astrologyService,
       chineseAstrologyService: this.chineseAstrologyService,
       config: this.config,
       locale: this.locale,
+      aiService: this.aiService,
     }).register();
   }
 
@@ -73,6 +98,8 @@ class Main {
         backgroundThrottling: false,
       },
     });
+
+    this.router.setWebContents(this.mainWindow.webContents);
 
     this.mainWindow.loadFile(path.join(__dirname, '..', 'renderer', 'Index.html'));
     this.mainWindow.once('ready-to-show', () => this.mainWindow.show());
@@ -114,6 +141,7 @@ class Main {
 
     app.on('quit', () => {
       SwissEphCore.close();
+      if (this.aiService) this.aiService.close();
     });
   }
 }

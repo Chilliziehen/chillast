@@ -40,4 +40,23 @@ contextBridge.exposeInMainWorld('mystApi', {
     getSolarTerms: (year) => invoke('chinese:solarTerms', year),
     searchCities: (query) => invoke('chinese:searchCities', query),
   },
+
+  /** AI astrology advisor. */
+  ai: {
+    interpret: (chartData, options) => invoke('ai:interpret', chartData, options),
+    chat: (messages, context) => invoke('ai:chat', messages, context),
+    stop: (sessionId) => invoke('ai:stop', sessionId),
+    configure: (settings) => invoke('ai:configure', settings),
+    status: () => invoke('ai:status'),
+    onToken: (callback) => ipcRenderer.on('ai:token', (_e, data) => callback(data)),
+    onDone: (callback) => ipcRenderer.on('ai:done', (_e, data) => callback(data)),
+    onError: (callback) => ipcRenderer.on('ai:error', (_e, data) => callback(data)),
+    removeAllListeners: () => {
+      for (const ch of ['ai:token', 'ai:done', 'ai:error'])
+        ipcRenderer.removeAllListeners(ch);
+    },
+    knowledge: {
+      list: () => invoke('ai:knowledge:list'),
+    },
+  },
 });

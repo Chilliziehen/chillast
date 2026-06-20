@@ -16,14 +16,18 @@ class IpcRouter {
    * @param {ProfileRepository} deps.profileRepository
    * @param {AstrologyService} deps.astrologyService
    */
-  constructor({ ipcMain, profileRepository, astrologyService, chineseAstrologyService, config, locale }) {
+  constructor({ ipcMain, profileRepository, astrologyService, chineseAstrologyService, config, locale, aiService }) {
     this.ipcMain = ipcMain;
     this.profiles = profileRepository;
     this.astrology = astrologyService;
     this.chinese = chineseAstrologyService;
     this.config = config || {};
     this.locale = locale || {};
+    this.ai = aiService;
+    this.webContents = null;
   }
+
+  setWebContents(wc) { this.webContents = wc; }
 
   /** Register every channel handler. Call once during app startup. */
   register() {
@@ -49,6 +53,37 @@ class IpcRouter {
       const { searchChineseCities } = require('../core/chinese/ChineseCityDatabase');
       return searchChineseCities(query);
     });
+
+    // AI handlers
+    if (this.ai) {
+      this._handle('ai:status', () => this.ai.status());
+      this._handle('ai:configure', async (_e, settings) => {
+        if (settings.apiKey) {
+          const { safeStorage } = require('electron');
+          const app = require('electron').app;
+          const credPath = require('path').join(app.getPath('userData'), 'ai-credentials.json');
+          const encrypted = safeStorage.encryptString(JSON.stringify({ apiKey: settings.apiKey }));
+          require('fs').writeFileSync(credPath, encrypted, 'utf-8');
+        }
+        await this.ai.configure(settings);
+        return { ok: true };
+      });
+      this._handle('ai:interpret', async (_e, chartData, options) => {
+        for await (const ev of this.ai.interpret(chartData, options)) {
+          if (this.webContents) this.webContents.send('ai:token', { type: ev.type, data: ev.data });
+        }
+        return { ok: true };
+      });
+      this._handle('ai:chat', async (_e, messages, context) => {
+        const sessionId = String(Date.now());
+        for await (const ev of this.ai.chat(messages, { ...context, sessionId })) {
+          if (this.webContents) this.webContents.send('ai:token', { sessionId, type: ev.type, data: ev.data });
+        }
+        return { ok: true };
+      });
+      this._handle('ai:stop', (_e, sessionId) => { this.ai.stop(sessionId); return { ok: true }; });
+      this._handle('ai:knowledge:list', () => this.ai.getKnowledgeBase()?.listDocuments() || []);
+    }
 
     this._handle('cities:search', (_e, query) => this._searchCities(query));
     return this;
