@@ -172,6 +172,12 @@
     "apiKeyNotSet": "未配置",
     "temperature": "温度",
     "maxTokens": "最大 Token 数",
+    "baseUrl": "Base URL",
+    "baseUrlPlaceholder": "自定义 API 地址（如 https://api.deepseek.com）",
+    "testConnection": "测试连接",
+    "testing": "测试中…",
+    "testSuccess": "连接成功",
+    "testFailed": "连接失败：{{message}}",
     "save": "保存配置",
     "saving": "保存中…",
     "saved": "AI 配置已保存",
@@ -191,7 +197,9 @@
     "notConfigured": "未配置",
     "providerLabel": "供应商",
     "modelLabel": "模型",
-    "knowledgeCount": "知识库：{{count}} 篇文档"
+    "knowledgeCount": "知识库：{{count}} 篇文档",
+    "llmConnected": "已连接",
+    "llmDisconnected": "未连接"
   },
   "ai": {
     "title": "AI 占星顾问",
@@ -199,6 +207,9 @@
     "notConfigured": "AI 未配置，请前往",
     "goToSettings": "设置页面",
     "toConfigure": "进行配置",
+    "llmStatus": "LLM 状态",
+    "llmConnected": "已连接",
+    "llmDisconnected": "未连接",
     "inputPlaceholder": "输入问题，或点击「AI 解读」分析当前星盘…",
     "send": "发送",
     "interpret": "AI 解读",

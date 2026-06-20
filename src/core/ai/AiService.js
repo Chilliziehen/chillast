@@ -38,8 +38,14 @@ class AiService {
       configured: this._configured,
       provider: (this._mp._settings && this._mp._settings.provider) || '',
       model: (this._mp._settings && this._mp._settings.model) || '',
+      baseUrl: (this._mp._settings && this._mp._settings.baseUrl) || '',
       knowledgeDocCount: this._kb ? this._kb.listDocuments().length : 0,
     };
+  }
+
+  async testConnection() {
+    if (!this._configured) throw new Error('AI 服务未配置');
+    return await this._mp.testConnection();
   }
 
   getKnowledgeBase() { return this._kb; }

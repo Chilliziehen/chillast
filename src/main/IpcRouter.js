@@ -57,6 +57,7 @@ class IpcRouter {
     // AI handlers
     if (this.ai) {
       this._handle('ai:status', () => this.ai.status());
+      this._handle('ai:testConnection', () => this.ai.testConnection());
       this._handle('ai:configure', async (_e, settings) => {
         if (settings.apiKey) {
           const { safeStorage } = require('electron');
