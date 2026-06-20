@@ -103,9 +103,18 @@ class IpcRouter {
         return { ok: true };
       });
       this._handle('ai:interpret', async (_e, chartData, options) => {
+        const sessionId = options.sessionId || String(Date.now());
         try {
+          let aiText = '';
           for await (const ev of this.ai.interpret(chartData, options)) {
             if (this.webContents) this.webContents.send('ai:token', { type: ev.type, data: ev.data });
+            if (ev.type === 'token') {
+              aiText += ev.data;
+            }
+          }
+          if (aiText && this.aiSessionStore && sessionId) {
+            this.aiSessionStore.appendMessage(sessionId, { role: 'user', content: 'AI 解读' });
+            this.aiSessionStore.appendMessage(sessionId, { role: 'ai', content: aiText });
           }
           if (this.webContents) this.webContents.send('ai:done', { ok: true });
           return { ok: true };
@@ -117,26 +126,30 @@ class IpcRouter {
       this._handle('ai:chat', async (_e, messages, context) => {
         const sessionId = context.sessionId || String(Date.now());
         try {
-          // Load full history from store if sessionId provided
           let fullMessages = messages;
           if (this.aiSessionStore && sessionId) {
+            const userMsg = messages[messages.length - 1];
+            if (userMsg) {
+              this.aiSessionStore.appendMessage(sessionId, userMsg);
+            }
             const session = this.aiSessionStore.get(sessionId);
-            if (session && session.messages && session.messages.length) {
+            if (session && session.messages) {
               fullMessages = session.messages;
             }
           }
 
+          let aiText = '';
           for await (const ev of this.ai.chat(fullMessages, { ...context, sessionId })) {
             if (this.webContents) this.webContents.send('ai:token', { sessionId, type: ev.type, data: ev.data });
-
-            // Persist completed messages
-            if (ev.type === 'done') {
-              // Find the last user message and persist AI response
-              // The AiService yields tokens; we accumulate them in the renderer.
-              // For persistence, we append the user message + a placeholder.
-              // The renderer will call ai:sessions:append after streaming completes.
+            if (ev.type === 'token') {
+              aiText += ev.data;
             }
           }
+
+          if (aiText && this.aiSessionStore && sessionId) {
+            this.aiSessionStore.appendMessage(sessionId, { role: 'ai', content: aiText });
+          }
+
           if (this.webContents) this.webContents.send('ai:done', { ok: true, sessionId });
           return { ok: true };
         } catch (err) {
@@ -147,6 +160,7 @@ class IpcRouter {
       this._handle('ai:stop', (_e, sessionId) => { this.ai.stop(sessionId); return { ok: true }; });
       this._handle('ai:knowledge:list', () => this.ai.getKnowledgeBase()?.listDocuments() || []);
       this._handle('ai:sessions:list', () => this.aiSessionStore ? this.aiSessionStore.list() : []);
+      this._handle('ai:sessions:get', (_e, id) => this.aiSessionStore ? this.aiSessionStore.get(id) : null);
       this._handle('ai:sessions:create', () => this.aiSessionStore ? this.aiSessionStore.create() : null);
       this._handle('ai:sessions:delete', (_e, id) => {
         if (this.aiSessionStore) return this.aiSessionStore.delete(id);

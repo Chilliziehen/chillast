@@ -67,6 +67,7 @@ contextBridge.exposeInMainWorld('mystApi', {
     },
     sessions: {
       list: () => invoke('ai:sessions:list'),
+      get: (id) => invoke('ai:sessions:get', id),
       create: () => invoke('ai:sessions:create'),
       delete: (id) => invoke('ai:sessions:delete', id),
       append: (sessionId, message) => invoke('ai:sessions:append', sessionId, message),
