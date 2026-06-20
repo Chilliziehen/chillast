@@ -90,7 +90,9 @@ class Main {
         aiSettings.apiKey = cred.apiKey || '';
       } catch (_) {}
     }
-    this.aiService.configure(aiSettings).catch(() => {});
+    this.aiService.configure(aiSettings).catch((e) => {
+      console.error('[AiService] configure failed:', e.message);
+    });
 
     this.router = new IpcRouter({
       ipcMain,

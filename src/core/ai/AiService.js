@@ -23,13 +23,25 @@ class AiService {
   async configure(settings) {
     await this._mp.configure(settings);
 
-    this._kb = new KnowledgeBase(this._mp);
-    if (settings.knowledgeBuiltinPath) {
-      await this._kb.initialize(settings.knowledgeBuiltinPath, settings.knowledgeUserPath || null);
+    // KB and tools initialization failures should not block configuration
+    try {
+      this._kb = new KnowledgeBase(this._mp);
+      if (settings.knowledgeBuiltinPath) {
+        await this._kb.initialize(settings.knowledgeBuiltinPath, settings.knowledgeUserPath || null);
+      }
+    } catch (e) {
+      console.error('[AiService] KnowledgeBase init failed:', e.message);
+      this._kb = null;
     }
 
-    this._chainFactory = new ChainFactory(this._mp, this._kb);
-    this._tools = await createTools(this._astrology, this._chinese, this);
+    try {
+      this._chainFactory = new ChainFactory(this._mp, this._kb);
+      this._tools = await createTools(this._astrology, this._chinese, this);
+    } catch (e) {
+      console.error('[AiService] Tools init failed:', e.message);
+      this._tools = [];
+    }
+
     this._configured = true;
   }
 
