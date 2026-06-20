@@ -165,6 +165,8 @@ export class AiSidebar {
       const result = await window.mystApi.ai.sessions.get(id);
       const session = result.ok ? result.data : null;
       this._currentSessionId = id;
+      // Guard against async race: don't re-render if user started streaming during fetch
+      if (this._streaming) return;
       this._renderMessages((session && session.messages) || []);
       this._refreshSessionDropdown();
     } catch (_) {}

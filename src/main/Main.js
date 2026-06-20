@@ -90,7 +90,11 @@ class Main {
         aiSettings.apiKey = cred.apiKey || '';
       } catch (_) {}
     }
-    this.aiService.configure(aiSettings).catch((e) => {
+    this.aiService.configure(aiSettings).then(() => {
+      if (this.router && this.router.webContents) {
+        this.router.webContents.send('ai:statusChanged', this.aiService.status());
+      }
+    }).catch((e) => {
       console.error('[AiService] configure failed:', e.message);
     });
 

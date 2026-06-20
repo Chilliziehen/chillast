@@ -326,8 +326,9 @@
 
 @keyframes blink { 50% { opacity: 0; } }
 
-.chat-input-row { display: flex; gap: var(--sp-1); padding: var(--sp-2); border-top: 1px solid var(--border-soft); }
-.chat-input { flex: 1; }
+.chat-input-row { display: flex; gap: var(--sp-1); padding: var(--sp-2); border-top: 1px solid var(--border-soft); flex-shrink: 0; }
+.chat-input { flex: 1; min-width: 0; }
+.chat-input-row .btn { flex-shrink: 0; }
 
 /* —— AI Sidebar ——————————————————————————————————————— */
 .ai-sidebar {
@@ -350,13 +351,6 @@
   display: flex;
   flex-direction: column;
 }
-.ai-deep-chat {
-  flex: 1;
-  min-height: 0;
-}
-.ai-action-row {
-  padding: var(--sp-1) var(--sp-2);
-  border-top: 1px solid var(--border-soft);
   display: flex;
   justify-content: flex-end;
 }
