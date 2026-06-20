@@ -43,6 +43,7 @@ const TokenEngine = {
       chart: raw.chart || {},
       window: raw.window || {},
       ephemeris: raw.ephemeris || { backend: 'swisseph' },
+      ai: raw.ai || { provider: 'openai', model: 'gpt-4o', temperature: 0.7, maxTokens: 4096, enableRag: true, ragTopK: 6 },
       locale: raw.locale || 'zh',
     };
   },

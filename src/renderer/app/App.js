@@ -13,6 +13,8 @@ import { ChartView } from './views/ChartView.js';
 import { SynastryView } from './views/SynastryView.js';
 import { ChineseAstrologyView } from './views/ChineseAstrologyView.js';
 import { SolarTermCalendarView } from './views/SolarTermCalendarView.js';
+import { AiSidebar } from './components/AiSidebar.js';
+import { SettingsView } from './views/SettingsView.js';
 
 const ROUTES = [
   { key: 'profiles', glyph: '☰', label: 'nav.profiles', group: 'nav.groupProfiles' },
@@ -20,6 +22,7 @@ const ROUTES = [
   { key: 'relationship', glyph: '☍', label: 'nav.relationship', group: 'nav.groupCharts' },
   { key: 'chinese', glyph: '☯', label: 'nav.chinese', group: 'nav.groupChinese' },
   { key: 'solarTerms', glyph: '◇', label: 'nav.solarTerms', group: 'nav.groupTools' },
+  { key: 'settings', glyph: '⚙', label: 'nav.settings', group: 'nav.groupTools' },
 ];
 
 export class App {
@@ -28,6 +31,8 @@ export class App {
     this.store = new Store({ profiles: [], selectedPrimaryId: null });
     this.activeRoute = 'profiles';
     this.views = {};
+    this.currentContext = { route: 'profiles', activeProfile: null, lastChartData: null, chartType: null };
+    this.aiCollapsed = false;
   }
 
   async start() {
@@ -49,12 +54,14 @@ export class App {
       config: this.config,
       refreshProfiles: () => this.refreshProfiles(),
       navigate: (route) => this.navigate(route),
+      setLastChart: (chartData, chartType) => this.setLastChart(chartData, chartType),
     };
     this.views.profiles = new ProfilesView(ctx);
     this.views.personal = new ChartView(ctx);
     this.views.relationship = new SynastryView(ctx);
     this.views.chinese = new ChineseAstrologyView(ctx);
     this.views.solarTerms = new SolarTermCalendarView(ctx);
+    this.views.settings = new SettingsView(ctx);
 
     this._buildShell();
     this.navigate('profiles');
@@ -63,6 +70,13 @@ export class App {
     this.store.subscribe(() => {
       if (this.activeRoute && this.contentEl) this._renderActive();
       this._syncNav();
+      const state = this.store.getState();
+      const profiles = state.profiles || [];
+      const selectedId = state.selectedPrimaryId;
+      this.currentContext.activeProfile = selectedId
+        ? profiles.find((p) => p.id === selectedId) || null
+        : null;
+      this._pushContext();
     });
   }
 
@@ -106,24 +120,37 @@ export class App {
       h('div', { class: 'sidebar-footer' }, t('app.version')),
     ]);
 
+    this.aiSidebar = new AiSidebar({ onNavigate: (route) => this.navigate(route) });
+
+    this.aiToggleBtn = h('button', {
+      class: 'btn btn-sm ai-toggle-btn is-active',
+      title: t('ai.toggle'),
+      onclick: () => this._toggleAiSidebar(),
+    }, '✦');
+
+    // Add toggle to header actions
+    const headerActions = h('div', { class: 'header-actions' }, [
+      h('span', { class: 'chip' }, t('app.chipSigns', { count: this.reference.signs.length })),
+      h('span', { class: 'chip' }, t('app.chipCharts', { count: this.reference.chartTypes.length })),
+      this.aiToggleBtn,
+    ]);
+
     const main = h('div', { class: 'main' }, [
       h('header', { class: 'app-header' }, [
         h('div', {}, [this.headerTitle, this.headerSub]),
-        h('div', { class: 'header-actions' }, [
-          h('span', { class: 'chip' }, t('app.chipSigns', { count: this.reference.signs.length })),
-          h('span', { class: 'chip' }, t('app.chipCharts', { count: this.reference.chartTypes.length })),
-        ]),
+        headerActions,
       ]),
       this.contentEl,
     ]);
 
-    // #app already carries `.app-shell`; mount the grid children directly to
-    // avoid nesting a second grid (which would collapse the content column).
-    mount(this.root, [sidebar, main]);
+    mount(this.root, [sidebar, main, this.aiSidebar.element]);
+    this.aiSidebar.updateStatus().catch(() => {});
   }
 
   navigate(route) {
     this.activeRoute = route;
+    this.currentContext.route = route;
+    this._pushContext();
     const meta = ROUTES.find((r) => r.key === route);
     const view = this.views[route];
     if (meta && view) {
@@ -132,6 +159,28 @@ export class App {
     }
     this._syncNav();
     this._renderActive();
+  }
+
+  _toggleAiSidebar() {
+    this.aiCollapsed = !this.aiCollapsed;
+    if (this.aiCollapsed) {
+      this.root.classList.add('ai-collapsed');
+      this.aiToggleBtn.classList.remove('is-active');
+    } else {
+      this.root.classList.remove('ai-collapsed');
+      this.aiToggleBtn.classList.add('is-active');
+    }
+  }
+
+  _pushContext() {
+    if (this.aiSidebar) this.aiSidebar.setContext(this.currentContext);
+    window.mystApi.ai.setContext(this.currentContext);
+  }
+
+  setLastChart(chartData, chartType) {
+    this.currentContext.lastChartData = chartData;
+    this.currentContext.chartType = chartType;
+    this._pushContext();
   }
 
   _renderActive() {

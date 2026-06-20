@@ -480,6 +480,26 @@ test('10-profile A/B comparison reports differences', () => {
   assert.ok(report.every((r) => typeof r.profile === 'string'), 'all reports have profile names');
 });
 
+console.log('\nChartSerializer');
+test('serializes natal chart with glyphs and signs', () => {
+  const { toText } = require('../src/core/ai/prompts/ChartSerializer');
+  const chart = svc.computeChart({ type: 'natal', primary: subjectA });
+  const text = toText(chart);
+  assert.ok(text.includes('太阳'), 'contains Sun nameZh');
+  assert.ok(text.includes('°'), 'contains degree symbol');
+  assert.ok(text.length > 200, 'output is substantial');
+});
+test('serializes dual-ring transit chart', () => {
+  const { toText } = require('../src/core/ai/prompts/ChartSerializer');
+  const chart = svc.computeChart({ type: 'transit', primary: subjectA, options: { targetDate: '2026-06-18T12:00:00Z' } });
+  const text = toText(chart);
+  assert.ok(chart.rings.length === 2, 'transit has 2 rings');
+  assert.ok(text.length > 300, 'dual-ring output is longer');
+});
+
+const { runAiTests } = require('./AiService.test');
+runAiTests(test);
+
 console.log(`\n${passed} passed, ${failed} failed\n`);
 if (failed > 0) {
   process.exitCode = 1;

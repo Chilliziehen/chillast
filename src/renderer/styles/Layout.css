@@ -3,10 +3,14 @@
 
 .app-shell {
   display: grid;
-  grid-template-columns: var(--sidebar-width, 228px) 1fr;
+  grid-template-columns: var(--sidebar-width, 228px) 1fr 380px;
   grid-template-rows: 100vh;
   height: 100vh;
 }
+.app-shell.ai-collapsed {
+  grid-template-columns: var(--sidebar-width, 228px) 1fr;
+}
+.app-shell.ai-collapsed .ai-sidebar { display: none; }
 
 /* —— Sidebar —————————————————————————————————————————————————— */
 .sidebar {

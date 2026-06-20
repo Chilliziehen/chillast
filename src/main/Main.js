@@ -8,8 +8,13 @@ const IpcRouter = require('./IpcRouter');
 const AstrologyService = require('../core/astrology/AstrologyService');
 const ChineseAstrologyService = require('../core/chinese/ChineseAstrologyService');
 const ConfigManager = require('../core/config/ConfigManager');
-const SwissEphCore = require('../core/astrology/ephemeris/SwissEphCore');
+let SwissEphCore = null;
+try {
+  SwissEphCore = require('../core/astrology/ephemeris/SwissEphCore');
+} catch (_) { /* swisseph-v2 native binding not rebuilt for Electron yet */ }
 const ChartStrategyFactory = require('../core/astrology/ChartStrategyFactory');
+const AiService = require('../core/ai/AiService');
+const AiSessionStore = require('./AiSessionStore');
 
 const fs = require('fs');
 
@@ -37,21 +42,71 @@ class Main {
     const ephePath = app.isPackaged
       ? path.join(process.resourcesPath, 'assets', 'ephemeris')
       : path.join(__dirname, '..', '..', 'assets', 'ephemeris');
-    SwissEphCore.configure({ ephePath });
+    if (SwissEphCore) SwissEphCore.configure({ ephePath });
 
     const baseDir = path.join(app.getPath('userData'), 'data');
     this.profileRepository = new ProfileRepository(baseDir).init();
+    this.aiSessionStore = new AiSessionStore(baseDir).init();
     this.astrologyService = new AstrologyService(
       new ChartStrategyFactory({ backend: this.config.ephemeris.backend }),
     );
     this.chineseAstrologyService = new ChineseAstrologyService();
-    new IpcRouter({
+
+    // AI Service bootstrap
+    const builtinKnowledgePath = app.isPackaged
+      ? path.join(process.resourcesPath, 'assets', 'knowledge', 'builtin')
+      : path.join(__dirname, '..', '..', 'assets', 'knowledge', 'builtin');
+    const userKnowledgePath = path.join(app.getPath('userData'), 'knowledge', 'user');
+    this.aiService = new AiService(this.astrologyService, this.chineseAstrologyService);
+
+    // Load persisted non-secret settings from data/ai-settings.json
+    const aiSettingsPath = path.join(baseDir, 'ai-settings.json');
+    const persistedSettings = fs.existsSync(aiSettingsPath)
+      ? JSON.parse(fs.readFileSync(aiSettingsPath, 'utf-8'))
+      : {};
+
+    const aiSettings = {
+      ...(this.config.ai || {}),
+      ...persistedSettings,
+      knowledgeBuiltinPath: builtinKnowledgePath,
+      knowledgeUserPath: userKnowledgePath,
+    };
+
+    const credPath = path.join(baseDir, 'ai-credentials.json');
+    if (fs.existsSync(credPath)) {
+      try {
+        const { safeStorage } = require('electron');
+        const buf = fs.readFileSync(credPath);
+        let cred;
+        try {
+          if (safeStorage.isEncryptionAvailable()) {
+            cred = JSON.parse(safeStorage.decryptString(buf));
+          } else {
+            throw new Error('safeStorage not available');
+          }
+        } catch (_) {
+          cred = JSON.parse(fs.readFileSync(credPath, 'utf-8'));
+        }
+        aiSettings.apiKey = cred.apiKey || '';
+      } catch (_) {}
+    }
+    this.aiService.configure(aiSettings).then(() => {
+      if (this.router && this.router.webContents) {
+        this.router.webContents.send('ai:statusChanged', this.aiService.status());
+      }
+    }).catch((e) => {
+      console.error('[AiService] configure failed:', e.message);
+    });
+
+    this.router = new IpcRouter({
       ipcMain,
       profileRepository: this.profileRepository,
       astrologyService: this.astrologyService,
       chineseAstrologyService: this.chineseAstrologyService,
       config: this.config,
       locale: this.locale,
+      aiService: this.aiService,
+      aiSessionStore: this.aiSessionStore,
     }).register();
   }
 
@@ -73,6 +128,8 @@ class Main {
         backgroundThrottling: false,
       },
     });
+
+    this.router.setWebContents(this.mainWindow.webContents);
 
     this.mainWindow.loadFile(path.join(__dirname, '..', 'renderer', 'Index.html'));
     this.mainWindow.once('ready-to-show', () => this.mainWindow.show());
@@ -113,7 +170,8 @@ class Main {
     });
 
     app.on('quit', () => {
-      SwissEphCore.close();
+      if (SwissEphCore) SwissEphCore.close();
+      if (this.aiService) this.aiService.close();
     });
   }
 }
