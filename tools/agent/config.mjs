@@ -52,9 +52,9 @@ export async function loadConfig() {
     apiKey = process.env.OPENAI_API_KEY || process.env.ANTHROPIC_API_KEY || '';
   }
 
-  const provider = persisted.provider || aiDefaults.provider || 'openai';
-  const model = persisted.model || aiDefaults.model || 'gpt-4o';
-  const baseUrl = persisted.baseUrl || aiDefaults.baseUrl || '';
+  const provider = persisted.provider || aiDefaults.provider || process.env.AI_PROVIDER || 'openai';
+  const model = persisted.model || aiDefaults.model || process.env.AI_MODEL || 'gpt-4o';
+  const baseUrl = persisted.baseUrl || aiDefaults.baseUrl || process.env.AI_BASE_URL || '';
   const temperature = 0.3;
 
   return { provider, model, apiKey, baseUrl, temperature };
