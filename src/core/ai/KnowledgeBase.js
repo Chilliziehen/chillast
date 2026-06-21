@@ -10,14 +10,30 @@ class KnowledgeBase {
     this._store = null;
     this._docs = [];
     this._userPath = null;
+    this._indexDir = null;
+    this._ragTopK = 6;
   }
 
-  async initialize(builtinPath, userDataPath) {
-    const embeddings = this._mp.embeddings();
-    if (!embeddings) return; // provider doesn't support embeddings (e.g. Anthropic alone)
+  setRagTopK(k) { this._ragTopK = k; }
 
+  async initialize(builtinPath, userDataPath, indexDir) {
+    const embeddings = this._mp.embeddings();
+    if (!embeddings) return;
+
+    this._indexDir = indexDir || null;
     const { RecursiveCharacterTextSplitter } = await esm.load('langchain/text_splitter');
     const { HNSWLib } = await esm.load('@langchain/community/vectorstores/hnswlib');
+
+    // Try loading persisted index first
+    if (this._indexDir && fs.existsSync(this._indexDir)) {
+      try {
+        this._store = await HNSWLib.load(embeddings, this._indexDir);
+        this._docs = this._rebuildDocList(builtinPath, userDataPath);
+        return;
+      } catch (e) {
+        console.error('[KnowledgeBase] load index failed, rebuilding:', e.message);
+      }
+    }
 
     const splitter = new RecursiveCharacterTextSplitter({
       chunkSize: 1000,
@@ -35,7 +51,7 @@ class KnowledgeBase {
         const content = fs.readFileSync(filePath, 'utf-8');
         const docs = await splitter.createDocuments(
           [content],
-          [{ source, fileName: f }],
+          [{ source, fileName: f, domain: this._extractDomain(content) }],
         );
         allChunks.push(...docs);
         this._docs.push({ id: filePath, name: f, source, importedAt: new Date().toISOString() });
@@ -53,16 +69,51 @@ class KnowledgeBase {
 
     if (allChunks.length) {
       this._store = await HNSWLib.fromDocuments(allChunks, embeddings);
+      if (this._indexDir) {
+        if (!fs.existsSync(this._indexDir)) fs.mkdirSync(this._indexDir, { recursive: true });
+        await this._store.save(this._indexDir);
+      }
     }
   }
 
-  async retrieve(query, k = 6) {
+  _extractDomain(content) {
+    const firstLine = content.split('\n').find((l) => l.trim());
+    if (!firstLine) return 'general';
+    const title = firstLine.replace(/^#+\s*/, '');
+    if (title.includes('行星') || title.includes('落座')) return 'planets-signs';
+    if (title.includes('宫位') || title.includes('落宫')) return 'planets-houses';
+    if (title.includes('相位')) return 'aspects';
+    if (title.includes('格局')) return 'patterns';
+    if (title.includes('逆行')) return 'retrograde';
+    if (title.includes('行运')) return 'transit';
+    if (title.includes('合盘')) return 'synastry';
+    if (title.includes('八字') || title.includes('命理')) return 'bazi';
+    return 'general';
+  }
+
+  _rebuildDocList(builtinPath, userDataPath) {
+    const docs = [];
+    const scan = (dir, source) => {
+      if (!dir || !fs.existsSync(dir)) return;
+      for (const f of fs.readdirSync(dir)) {
+        if (!f.endsWith('.md') && !f.endsWith('.txt')) continue;
+        docs.push({ id: path.join(dir, f), name: f, source, importedAt: new Date().toISOString() });
+      }
+    };
+    scan(builtinPath, 'builtin');
+    if (userDataPath) scan(userDataPath, 'user');
+    return docs;
+  }
+
+  async retrieve(query, k) {
     if (!this._store) return [];
-    const results = await this._store.similaritySearch(query, k);
+    const topK = k || this._ragTopK || 6;
+    const results = await this._store.similaritySearch(query, topK);
     return results.map((r) => ({
       content: r.pageContent,
-      source: r.metadata.source || 'unknown',
-      fileName: r.metadata.fileName || '',
+      source: (r.metadata && r.metadata.source) || 'unknown',
+      fileName: (r.metadata && r.metadata.fileName) || '',
+      domain: (r.metadata && r.metadata.domain) || 'general',
     }));
   }
 
@@ -89,7 +140,6 @@ class KnowledgeBase {
 
     const allChunks = [];
     for (const filePath of filePaths) {
-      const path = require('path');
       const f = path.basename(filePath);
       const ext = path.extname(filePath).toLowerCase();
       if (ext !== '.md' && ext !== '.txt' && ext !== '.pdf') continue;
@@ -97,14 +147,14 @@ class KnowledgeBase {
       let content;
       if (ext === '.pdf') {
         const pdfParse = require('pdf-parse');
-        const buffer = require('fs').readFileSync(filePath);
+        const buffer = fs.readFileSync(filePath);
         const pdfData = await pdfParse(buffer);
         content = pdfData.text;
       } else {
-        content = require('fs').readFileSync(filePath, 'utf-8');
+        content = fs.readFileSync(filePath, 'utf-8');
       }
 
-      const docs = await splitter.createDocuments([content], [{ source: 'user', fileName: f }]);
+      const docs = await splitter.createDocuments([content], [{ source: 'user', fileName: f, domain: this._extractDomain(content) }]);
       allChunks.push(...docs);
       this._docs.push({ id: filePath, name: f, source: 'user', importedAt: new Date().toISOString() });
     }
@@ -113,6 +163,10 @@ class KnowledgeBase {
       await this._store.addDocuments(allChunks);
     } else if (allChunks.length) {
       this._store = await HNSWLib.fromDocuments(allChunks, embeddings);
+    }
+
+    if (this._indexDir && this._store) {
+      await this._store.save(this._indexDir);
     }
 
     return allChunks.length;
