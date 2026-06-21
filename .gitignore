@@ -8,3 +8,8 @@ Thumbs.db
 .npm-cache/
 .codely-cli/
 .superpowers/
+
+# Raw knowledge documents (cleaned versions go to assets/knowledge/builtin/)
+tools/raw-knowledge/*
+!tools/raw-knowledge/.gitkeep
+!tools/raw-knowledge/test-sample.txt
