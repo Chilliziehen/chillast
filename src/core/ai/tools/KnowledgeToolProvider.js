@@ -31,7 +31,10 @@ class KnowledgeToolProvider extends ToolProvider {
       schema: z.object({ query: z.string().describe('搜索关键词，如"太阳在白羊座"') }),
       func: async (input) => {
         const docs = await kb.retrieve(input.query, 4);
-        return docs.map((d) => d.content).join('\n\n') || '未找到相关知识';
+        if (!docs.length) return '未找到相关知识';
+        return docs.map((d, i) =>
+          `[参考${i + 1}] (领域: ${d.domain || '通用'}, 来源: ${d.fileName || d.source})\n${d.content}`
+        ).join('\n\n---\n\n');
       },
     });
 
