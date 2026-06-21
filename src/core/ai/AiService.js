@@ -8,6 +8,8 @@ const AstroToolProvider = require('./tools/AstroToolProvider');
 const ContextToolProvider = require('./tools/ContextToolProvider');
 const KnowledgeToolProvider = require('./tools/KnowledgeToolProvider');
 const ProfileToolProvider = require('./tools/ProfileToolProvider');
+const McpToolProvider = require('./tools/McpToolProvider');
+const McpManager = require('./mcp/McpManager');
 const { build: buildChatPrompt } = require('./prompts/ChatPrompt');
 const { toText } = require('./prompts/ChartSerializer');
 const esm = require('./esm-bridge');
@@ -21,6 +23,7 @@ class AiService {
     this._kb = null;
     this._chainFactory = null;
     this._registry = null;
+    this._mcpManager = null;
     this._configured = false;
     this._abortControllers = new Map();
     this._context = null;
@@ -37,28 +40,41 @@ class AiService {
       // Don't throw — user may still want to use the service with a different model later
     }
 
-    // KB initialization may fail if embeddings API is unavailable (e.g. DeepSeek doesn't support embeddings)
-    // Chat can still work without RAG
-    try {
-      this._kb = new KnowledgeBase(this._mp);
-      if (settings.knowledgeBuiltinPath) {
-        await this._kb.initialize(settings.knowledgeBuiltinPath, settings.knowledgeUserPath || null);
-      }
-    } catch (e) {
-      console.error('[AiService] KnowledgeBase init failed, continuing without RAG:', e.message);
+    // KB initialization — skip if enableRag is explicitly false
+    if (settings.enableRag === false) {
       this._kb = null;
+    } else {
+      try {
+        this._kb = new KnowledgeBase(this._mp);
+        this._kb.setRagTopK(settings.ragTopK || 6);
+        if (settings.knowledgeBuiltinPath) {
+          await this._kb.initialize(settings.knowledgeBuiltinPath, settings.knowledgeUserPath || null, settings.knowledgeIndexDir || null);
+        }
+      } catch (e) {
+        console.error('[AiService] KnowledgeBase init failed, continuing without RAG:', e.message);
+        this._kb = null;
+      }
     }
 
     // Build the pluggable tool registry. Adding a capability later = register a
     // new provider here (or an MCP provider) — the agent loop never changes.
     try {
       if (this._registry) await this._registry.disposeAll();
+      this._mcpManager = new McpManager(settings.mcpServers || {});
       this._registry = new ToolRegistry();
       this._registry.register(new AstroToolProvider(this._astrology, this._chinese));
       this._registry.register(new ContextToolProvider(this));
       this._registry.register(new ProfileToolProvider(this._profiles));
       this._registry.register(new KnowledgeToolProvider(this._kb));
+      // External MCP servers (off unless explicitly enabled in mcpServers config).
+      this._registry.register(new McpToolProvider(this._mcpManager));
       await this._registry.initAll();
+      // Apply persisted per-provider enable preferences.
+      if (settings.toolProviders) {
+        for (const [id, en] of Object.entries(settings.toolProviders)) {
+          this._registry.setEnabled(id, !!en);
+        }
+      }
     } catch (e) {
       console.error('[AiService] Tool registry init failed:', e.message);
       this._registry = new ToolRegistry();
@@ -70,6 +86,24 @@ class AiService {
 
   /** Expose the tool registry (for the settings UI / introspection). */
   getToolRegistry() { return this._registry; }
+
+  /** Expose the MCP manager (server list / status for the settings UI). */
+  getMcpManager() { return this._mcpManager; }
+
+  /**
+   * Replace the MCP server set live (from the settings UI) without a full
+   * reconfigure: swap the 'mcp' provider, reconnecting only enabled servers.
+   */
+  async updateMcp(servers) {
+    if (!this._registry) return;
+    const old = this._registry.unregister('mcp');
+    if (old) { try { await old.dispose(); } catch (_) { /* best-effort */ } }
+    this._mcpManager = new McpManager(servers || {});
+    const provider = new McpToolProvider(this._mcpManager);
+    this._registry.register(provider);
+    try { await provider.init(); }
+    catch (e) { console.error('[AiService] MCP update failed:', e.message); }
+  }
 
   status() {
     return {

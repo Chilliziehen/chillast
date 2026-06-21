@@ -65,11 +65,13 @@ class Main {
       ? JSON.parse(fs.readFileSync(aiSettingsPath, 'utf-8'))
       : {};
 
+    const vectorIndexDir = path.join(baseDir, 'vector-index');
     const aiSettings = {
       ...(this.config.ai || {}),
       ...persistedSettings,
       knowledgeBuiltinPath: builtinKnowledgePath,
       knowledgeUserPath: userKnowledgePath,
+      knowledgeIndexDir: vectorIndexDir,
     };
 
     const credPath = path.join(baseDir, 'ai-credentials.json');
