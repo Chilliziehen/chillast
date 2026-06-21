@@ -1,6 +1,6 @@
 import { readFile, writeFile, mkdir, readdir } from 'fs/promises';
 import { existsSync } from 'fs';
-import { join, extname } from 'path';
+import { join } from 'path';
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 
@@ -8,42 +8,40 @@ const ROOT = process.cwd();
 const INPUT_DIR = join(ROOT, 'tools', 'raw-knowledge');
 const OUTPUT_DIR = join(ROOT, 'assets', 'knowledge', 'builtin');
 
-// Tool 1: List available raw files
+// Tool 1: List available raw .p.txt files
 const listFilesTool = new DynamicStructuredTool({
   name: 'list_raw_documents',
-  description: '列出 tools/raw-knowledge/ 目录中所有可用的原始文档文件名。',
+  description: '列出 tools/raw-knowledge/ 目录中所有可用的原始文档文件名（仅 .p.txt 格式的 OCR 纯文本文件）。',
   schema: z.object({}),
   func: async () => {
     if (!existsSync(INPUT_DIR)) {
       return 'tools/raw-knowledge/ 目录不存在。请先创建并放入原始文档。';
     }
     const files = await readdir(INPUT_DIR);
-    const valid = files.filter(f => /\.(md|txt|pdf)$/i.test(f));
-    if (!valid.length) return '目录为空。请放入 .md / .txt / .pdf 格式的原始文档。';
+    const valid = files.filter(f => /\.p\.txt$/i.test(f));
+    if (!valid.length) return '目录中没有 .p.txt 文件。请放入 OCR 提取的纯文本文件。';
     return `可用文件 (${valid.length}):\n${valid.map(f => `  - ${f}`).join('\n')}`;
   },
 });
 
-// Tool 2: Read a raw document file
+// Tool 2: Read a raw .p.txt document
 const readFileTool = new DynamicStructuredTool({
   name: 'read_document',
-  description: '读取原始占星文档文件。输入文件名（位于 tools/raw-knowledge/ 目录），返回文件全文内容。支持 .md, .txt, .pdf 格式。',
+  description: '读取原始占星文档文件（.p.txt 格式的 OCR 纯文本）。输入完整文件名，返回文件全文内容。注意：文本来自 OCR，可能包含乱码、错字、断行等问题，需要清洗修复。',
   schema: z.object({
-    filename: z.string().describe('文件名，如 aspects-guide.pdf 或 planets.md'),
+    filename: z.string().describe('.p.txt 文件名，如 [OCR]_内在的宇宙_20260621_1241.p.txt'),
   }),
   func: async (input) => {
     const filePath = join(INPUT_DIR, input.filename);
     if (!existsSync(filePath)) {
-      return `文件不存在: ${input.filename}。请检查 tools/raw-knowledge/ 目录中的可用文件。`;
+      return `文件不存在: ${input.filename}。请先调用 list_raw_documents 查看可用文件。`;
     }
-    const ext = extname(filePath).toLowerCase();
-    if (ext === '.pdf') {
-      const pdfParse = (await import('pdf-parse')).default;
-      const buffer = await readFile(filePath);
-      const data = await pdfParse(buffer);
-      return data.text;
+    const content = await readFile(filePath, 'utf-8');
+    // Truncate to ~50000 chars to stay within LLM context limits
+    if (content.length > 50000) {
+      return content.slice(0, 50000) + '\n\n[... 文档较长，已截断。如需处理后半部分，请说明。]';
     }
-    return await readFile(filePath, 'utf-8');
+    return content;
   },
 });
 
