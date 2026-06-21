@@ -2,6 +2,7 @@
 
 const sxwnl = require('./SxwnlLoader');
 const ChineseAstrologyAdapter = require('./ChineseAstrologyAdapter');
+const { analyze } = require('./BaZiAnalysis');
 const {
   HEAVENLY_STEMS, EARTHLY_BRANCHES, FIVE_ELEMENTS, ZODIAC_ANIMALS,
 } = require('./ChineseAstrologyConstants');
@@ -29,8 +30,9 @@ class ChineseAstrologyService {
 
     const bazi = this.adapter.computeBaZi(bd, bd.location.longitude);
     const lunar = this.adapter.getLunarDate(bd.year, bd.month, bd.day);
+    const analysis = analyze(bazi);
 
-    return { bazi, lunar };
+    return { bazi, lunar, analysis };
   }
 }
 

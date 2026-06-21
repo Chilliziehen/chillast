@@ -41,6 +41,50 @@ export function fiveElementsPanel(baziData) {
   return panel(t('chinese.fiveElementsDist'), bars);
 }
 
+const PILLAR_LABEL_KEY = {
+  year: 'chinese.pillarYear', month: 'chinese.pillarMonth',
+  day: 'chinese.pillarDay', hour: 'chinese.pillarHour',
+};
+
+export function tenGodsPanel(analysis) {
+  if (!analysis || !analysis.pillars) return h('div');
+
+  const header = h('tr', {}, [
+    h('th', { style: { textAlign: 'left', color: 'var(--text-muted)', fontWeight: 'var(--fw-normal)' } }, t('chinese.colPillar')),
+    h('th', { style: { textAlign: 'left', color: 'var(--text-muted)', fontWeight: 'var(--fw-normal)' } }, t('chinese.colStem')),
+    h('th', { style: { textAlign: 'left', color: 'var(--text-muted)', fontWeight: 'var(--fw-normal)' } }, t('chinese.colBranch')),
+    h('th', { style: { textAlign: 'left', color: 'var(--text-muted)', fontWeight: 'var(--fw-normal)' } }, t('chinese.colHidden')),
+  ]);
+
+  const rows = analysis.pillars.map((p) => h('tr', {}, [
+    h('td', { style: { color: 'var(--text-muted)', padding: '4px 0' } }, t(PILLAR_LABEL_KEY[p.key] || '')),
+    h('td', { style: { padding: '4px 0' } }, [
+      h('span', { style: { color: ELEMENT_COLOR[p.stemElement] || 'var(--text-primary)', fontWeight: 'var(--fw-semibold)' } }, p.stemChar),
+      h('span', { class: 'text-muted', style: { marginLeft: '6px', fontSize: '12px' } }, p.stemTenGod),
+    ]),
+    h('td', { style: { padding: '4px 0' } }, [
+      h('span', { style: { color: ELEMENT_COLOR[p.branchElement] || 'var(--text-primary)' } }, p.branchChar),
+      p.branchAnimal ? h('span', { class: 'text-muted', style: { marginLeft: '4px', fontSize: '12px' } }, p.branchAnimal) : null,
+    ]),
+    h('td', { style: { fontSize: '12px', padding: '4px 0' } }, p.hidden.map((hs) =>
+      h('span', { style: { marginRight: '8px', whiteSpace: 'nowrap' } }, [
+        h('span', { style: { color: ELEMENT_COLOR[hs.element] || 'var(--text-primary)' } }, hs.char),
+        hs.tenGod ? h('span', { class: 'text-muted' }, `·${hs.tenGod}`) : null,
+      ]))),
+  ]));
+
+  const table = h('table', { style: { width: '100%', fontSize: '13px', borderCollapse: 'collapse' } }, [
+    h('thead', {}, header),
+    h('tbody', {}, rows),
+  ]);
+
+  const s = analysis.strength;
+  const strength = h('div', { class: 'text-muted', style: { marginTop: '10px', fontSize: '12px' } },
+    t('chinese.dayMasterStrength', { label: s.label, n: s.supportive, total: s.total }));
+
+  return panel(t('chinese.tenGodsTitle'), [table, strength]);
+}
+
 export function dayMasterPanel(baziData) {
   const dm = baziData.dayMaster;
   const color = ELEMENT_COLOR[dm.element] || 'var(--text-primary)';

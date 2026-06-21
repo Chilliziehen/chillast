@@ -1,7 +1,6 @@
-import { h, mount, clear } from '../Dom.js';
+import { h, mount } from '../Dom.js';
 import { ApiClient } from '../ApiClient.js';
-import { renderBaZiChart } from '../components/BaZiChart.js';
-import { fiveElementsPanel, dayMasterPanel, lunarInfoPanel, pillarDetailPanel, singlePillarPanel } from '../components/BaZiTables.js';
+import { fiveElementsPanel, dayMasterPanel, lunarInfoPanel, pillarDetailPanel, tenGodsPanel } from '../components/BaZiTables.js';
 import { hourPillarsPanel } from '../components/HourPillarsTable.js';
 import { notify } from '../components/Toast.js';
 import { t } from '../I18n.js';
@@ -34,15 +33,25 @@ export class ChineseAstrologyView {
     const defaultId = this.ctx.store.getState().selectedPrimaryId || profiles[0].id;
     this.profileSelect = profileSelect(profiles, defaultId);
 
-    this.chartCol = h('div', { class: 'chart-col' }, [emptyResult()]);
-    this.dataCol = h('div', { class: 'data-col' });
+    this.resultHost = h('div', { class: 'bazi-result' }, [emptyResult()]);
 
     const wrap = h('div', { class: 'workbench-wrap' }, [
       h('div', { class: 'workbench-bar' }, [
         labeled(t('chinese.labelProfile'), this.profileSelect),
         h('button', { class: 'btn btn-primary', onclick: () => this._compute() }, t('chinese.generate')),
+        h('button', {
+          class: 'btn btn-ghost',
+          onclick: () => {
+            const profiles = this.ctx.store.getState().profiles || [];
+            const p = profiles.find((x) => x.id === this.profileSelect.value);
+            if (p && this.ctx.setActiveProfile) this.ctx.setActiveProfile(p);
+            if (this.ctx.requestAiChat) {
+              this.ctx.requestAiChat('请结合我当前选中档案的八字命盘，进行详细的传统命理分析（五行旺衰、十神、藏干、格局与人生建议）。');
+            }
+          },
+        }, t('ai.interpret')),
       ]),
-      h('div', { class: 'workbench-main' }, [this.chartCol, this.dataCol]),
+      this.resultHost,
     ]);
 
     mount(this.container, wrap);
@@ -53,18 +62,19 @@ export class ChineseAstrologyView {
     const profile = profiles.find((p) => p.id === this.profileSelect.value);
     if (!profile) return;
 
-    mount(this.chartCol, loadingResult());
-    clear(this.dataCol);
+    // Let the AI know which profile is being analyzed.
+    if (this.ctx.setActiveProfile) this.ctx.setActiveProfile(profile);
+
+    mount(this.resultHost, loadingResult());
 
     try {
       const result = await ApiClient.chinese.computeBazi(profile);
       this._lastResult = result;
-      this._selectedPillar = null;
       this._renderResult(result);
 
       notify.success(t('chinese.generated'));
     } catch (err) {
-      mount(this.chartCol, h('div', { class: 'empty-state' }, [
+      mount(this.resultHost, h('div', { class: 'empty-state', style: { gridColumn: '1 / -1' } }, [
         h('div', { class: 'big' }, '⚠'),
         h('p', {}, err.message),
       ]));
@@ -72,31 +82,16 @@ export class ChineseAstrologyView {
     }
   }
 
+  // Unified single page — all panels in one responsive grid, no pillar switching.
   _renderResult(result) {
-    const selectPillar = (key) => {
-      this._selectedPillar = key;
-      this._renderResult(result);
-    };
-
-    mount(this.chartCol, h('div', { style: { padding: 'var(--sp-4)' } }, [
-      renderBaZiChart(result.bazi, selectPillar, this._selectedPillar),
-    ]));
-
-    if (this._selectedPillar) {
-      mount(this.dataCol, [
-        singlePillarPanel(result.bazi, this._selectedPillar),
-        fiveElementsPanel(result.bazi),
-        lunarInfoPanel(result.lunar),
-      ]);
-    } else {
-      mount(this.dataCol, [
-        dayMasterPanel(result.bazi),
-        fiveElementsPanel(result.bazi),
-        lunarInfoPanel(result.lunar),
-        pillarDetailPanel(result.bazi),
-        hourPillarsPanel(result.bazi),
-      ]);
-    }
+    mount(this.resultHost, [
+      dayMasterPanel(result.bazi),
+      tenGodsPanel(result.analysis),
+      pillarDetailPanel(result.bazi),
+      fiveElementsPanel(result.bazi),
+      lunarInfoPanel(result.lunar),
+      hourPillarsPanel(result.bazi),
+    ]);
   }
 }
 
@@ -116,14 +111,14 @@ function profileSelect(profiles, selectedId) {
 }
 
 function emptyResult() {
-  return h('div', { class: 'empty-state' }, [
+  return h('div', { class: 'empty-state', style: { gridColumn: '1 / -1' } }, [
     h('div', { class: 'big' }, '☯'),
     h('p', {}, t('chinese.emptyResult')),
   ]);
 }
 
 function loadingResult() {
-  return h('div', { class: 'empty-state' }, [
+  return h('div', { class: 'empty-state', style: { gridColumn: '1 / -1' } }, [
     h('div', { class: 'big boot-glyph' }, '☯'),
     h('p', {}, t('chinese.loading')),
   ]);
