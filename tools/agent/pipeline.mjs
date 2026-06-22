@@ -1,31 +1,30 @@
 // pipeline.mjs — Stage 1: deterministic, chunked, near-lossless OCR cleaning.
 //
-// Why not the ReAct agent? Asking an LLM to read a whole book and re-emit the
-// cleaned book in one turn forces summarization (and is capped by the output
-// token limit). Instead we split each file into small chunks, clean each chunk
-// independently with a strict "preserve everything" instruction, then stitch the
-// results back together. The model only ever processes one small chunk, so it
-// physically cannot drop most of the content.
+// Corpus-driven: the subject-specific cleaning instructions come from a corpus
+// config (tools/corpora/<id>.mjs), so the same engine cleans astrology, bazi,
+// ziwei, vedic … books. Input/output dirs also come from the corpus.
 //
-// Output: one cleaned `.md` per book into tools/cleaned/ (intermediate). Stage 2
-// (classify.mjs) then routes sections into per-domain files under the live KB dir.
+// Why chunked? Asking an LLM to read a whole book and re-emit it in one turn
+// forces summarization (and is capped by the output token limit). We split each
+// file into small chunks, clean each independently with a strict "preserve
+// everything" instruction, then stitch — so the model never drops most content.
 
 import { readFile, writeFile, mkdir, readdir } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { extractText, stripFence, mapWithConcurrency, withRetry } from './util.mjs';
 
-const ROOT = process.cwd();
-export const INPUT_DIR = process.env.CLEAN_IN_DIR || join(ROOT, 'tools', 'raw-knowledge');
-export const CLEANED_DIR = process.env.CLEAN_OUT_DIR || join(ROOT, 'tools', 'cleaned');
-
-// Per-chunk size (characters of raw OCR text). Small enough that the cleaned
-// output comfortably fits under the model's output-token limit.
+// Per-chunk size (characters of raw OCR text) and parallelism.
 export const CHUNK_CHARS = Number(process.env.CLEAN_CHUNK_CHARS || 4500);
-// How many chunks to clean in parallel. Order is preserved regardless.
 export const CONCURRENCY = Number(process.env.CLEAN_CONCURRENCY || 4);
 
-const CHUNK_SYSTEM_PROMPT = `你是占星书籍 OCR 文本清洗专家。下面给你的是从一本书中 OCR 提取的**一段**原始纯文本（整本书的一部分）。请把它清洗成规范的简体中文 Markdown。
+/** Build the per-chunk cleaning system prompt for a given corpus. */
+export function cleanSystemPrompt(corpus) {
+  const c = (corpus && corpus.clean) || {};
+  const subject = c.subject || '专业书籍';
+  const preserve = c.preserve || '专业术语、专有名词与符号';
+  const fixHint = c.fixHint || '明显错字与被错误拆分的词';
+  return `你是${subject}OCR 文本清洗专家。下面给你的是从一本${subject}中 OCR 提取的**一段**原始纯文本（整本书的一部分）。请把它清洗成规范的简体中文 Markdown。
 
 【第一原则：这是清洗，不是摘要】
 - 逐句保留原文的**全部实质内容**，禁止概括、缩写、改写、删减或省略任何正文。
@@ -34,9 +33,9 @@ const CHUNK_SYSTEM_PROMPT = `你是占星书籍 OCR 文本清洗专家。下面�
 
 【需要修复的 OCR 问题】
 - 删除：纯乱码片段（如 {l hmrt {ee）、页眉页脚、孤立页码、纯英文的版权/目录噪声。
-- 修正：明显错字（依据上下文，如"占量学"→"占星学"）、被错误拆分的英文词（ChartInterpretation→Chart Interpretation）。
+- 修正：${fixHint}。
 - 合并：被错误断行/分页切断的句子和段落，恢复成通顺的整段。
-- 保留：占星专业术语与符号（☉ ☽ ☿ ♀ ♂ ♃ ♄ ♅ ♆ ♇ ☊ ☋ 等），以及人名、星座、宫位等专有名词。
+- 保留：${preserve}。
 
 【格式要求】
 - 若本段中出现章节或小节标题，用 ## / ### 还原；正文用普通段落。
@@ -45,6 +44,7 @@ const CHUNK_SYSTEM_PROMPT = `你是占星书籍 OCR 文本清洗专家。下面�
 
 【特例】
 - 如果这一段几乎全是乱码、版权页、目录或空白、没有任何实质正文，只回复一个词：SKIP`;
+}
 
 /**
  * Split text into chunks of at most ~maxChars, breaking on blank-line paragraph
@@ -72,10 +72,9 @@ export function splitIntoChunks(text, maxChars = CHUNK_CHARS) {
   return chunks;
 }
 
-/** Clean one chunk. Returns cleaned markdown, or '' if the model said SKIP. */
-async function cleanChunk(model, SystemMessage, HumanMessage, chunk) {
+async function cleanChunk(model, SystemMessage, HumanMessage, systemPrompt, chunk) {
   const res = await withRetry(() => model.invoke([
-    new SystemMessage(CHUNK_SYSTEM_PROMPT),
+    new SystemMessage(systemPrompt),
     new HumanMessage(chunk),
   ]));
   const out = stripFence(extractText(res));
@@ -92,53 +91,53 @@ export function titleFromFilename(filename) {
     .trim() || filename.replace(/\.p\.txt$/i, '');
 }
 
-/** List the raw .p.txt OCR files available for cleaning. */
-export async function listRawFiles() {
-  if (!existsSync(INPUT_DIR)) return [];
-  const files = await readdir(INPUT_DIR);
+/** List the raw .p.txt OCR files for a corpus. */
+export async function listRawFiles(corpus) {
+  if (!existsSync(corpus.rawDir)) return [];
+  const files = await readdir(corpus.rawDir);
   return files.filter((f) => /\.p\.txt$/i.test(f)).sort();
 }
 
 /**
- * Clean a single raw file end-to-end and write the result to tools/cleaned/.
- * Returns stats so the caller can verify how much content was preserved.
+ * Clean a single raw file end-to-end and write the result to the corpus's
+ * cleaned dir. Returns stats so the caller can verify content preservation.
  * Skips files already cleaned unless { force } is set.
  */
-export async function cleanFile(model, messages, filename, { log = () => {}, force = false } = {}) {
+export async function cleanFile(model, messages, corpus, filename, { log = () => {}, force = false } = {}) {
   const { SystemMessage, HumanMessage } = messages;
   const title = titleFromFilename(filename);
   const outName = `${title}.md`;
-  const outPath = join(CLEANED_DIR, outName);
+  const outPath = join(corpus.cleanedDir, outName);
 
   if (!force && existsSync(outPath)) {
     log(`  · 跳过（已存在）：${outName}（用 --force 重新清洗）`);
     return { title, outName, skipped: true };
   }
 
-  const raw = await readFile(join(INPUT_DIR, filename), 'utf-8');
+  const raw = await readFile(join(corpus.rawDir, filename), 'utf-8');
   const chunks = splitIntoChunks(raw);
+  const systemPrompt = cleanSystemPrompt(corpus);
   log(`  · ${title}: ${raw.length} 字符 → ${chunks.length} 块（并发 ${CONCURRENCY}）`);
 
   let done = 0;
   const cleaned = await mapWithConcurrency(chunks, CONCURRENCY, async (chunk, idx) => {
     try {
-      const out = await cleanChunk(model, SystemMessage, HumanMessage, chunk);
+      const out = await cleanChunk(model, SystemMessage, HumanMessage, systemPrompt, chunk);
       done++;
       log(`    └ 块 ${idx + 1}/${chunks.length} ✓ (${done}/${chunks.length})`);
       return out;
     } catch (e) {
       done++;
       log(`    └ 块 ${idx + 1}/${chunks.length} ✗ ${e.message}（保留原文）`);
-      // On hard failure keep the raw chunk so no content is silently lost.
-      return chunk;
+      return chunk; // keep raw so no content is silently lost
     }
   });
 
   const body = cleaned.filter((s) => s && s.trim()).join('\n\n');
-  const overview = `本文档由《${title}》OCR 文本清洗整理而成，覆盖该书的占星知识内容。`;
+  const overview = `本文档由《${title}》OCR 文本清洗整理而成，覆盖该书的${corpus.name}知识内容。`;
   const md = `# ${title}\n\n${overview}\n\n${body}\n`;
 
-  if (!existsSync(CLEANED_DIR)) await mkdir(CLEANED_DIR, { recursive: true });
+  if (!existsSync(corpus.cleanedDir)) await mkdir(corpus.cleanedDir, { recursive: true });
   await writeFile(outPath, md, 'utf-8');
 
   const ratio = raw.length ? Math.round((body.length / raw.length) * 100) : 0;

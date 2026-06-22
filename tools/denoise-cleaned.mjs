@@ -7,20 +7,19 @@
 //   - 短的版权/ISBN/出版/责编/定价/版次/开本/印刷 等元数据行（≤50 字）
 // 不动序/前言/作者简介等正文（交给 Stage 2 的 general 桶兜底）。
 //
-// 默认 dry-run（只预览不改）。确认后加 --apply 才写回。
-//   node tools/denoise-cleaned.mjs              # 预览
-//   node tools/denoise-cleaned.mjs --apply      # 应用（先备份原文到 tools/cleaned/.orig/）
-//   node tools/denoise-cleaned.mjs --apply 内在  # 只处理文件名匹配的
+// 默认 dry-run（只预览不改）。确认后加 --apply 才写回。按 --corpus 指定领域。
+//   node tools/denoise-cleaned.mjs                         # astrology 预览
+//   node tools/denoise-cleaned.mjs --corpus bazi --apply   # 八字 应用（先备份到 <cleaned>/.orig/）
+//   node tools/denoise-cleaned.mjs --corpus ziwei 关键词    # 只处理文件名匹配的
 
 import { readFile, writeFile, mkdir, readdir, copyFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join } from 'path';
-
-const ROOT = process.cwd();
-const DIR = process.env.CLEAN_OUT_DIR || join(ROOT, 'tools', 'cleaned');
-const ORIG = join(DIR, '.orig');
+import { loadCorpus } from './corpora/index.mjs';
+import { parseArgs } from './agent/cli.mjs';
 
 // Strict metadata markers — a short line containing any of these is colophon/junk.
+// (Book-info noise is subject-agnostic, so denoise rules are shared across corpora.)
 const META_RE = /(ISBN|图书在版编目|圖書在版編目|责任编辑|責任編輯|责任印制|責任印製|责任校对|責任校對|出版发行|出版發行|出版社|版权所有|版權所有|翻印必究|定价|定價|版次|印次|开本|開本|新华书店|裝幀|装帧|印刷)/;
 
 function titleOf(content) {
@@ -52,9 +51,10 @@ function denoise(content) {
 }
 
 async function main() {
-  const args = process.argv.slice(2);
-  const apply = args.includes('--apply');
-  const filter = args.find((a) => !a.startsWith('--'));
+  const { corpusId, apply, filter } = parseArgs(process.argv.slice(2));
+  const corpus = await loadCorpus(corpusId);
+  const DIR = corpus.cleanedDir;
+  const ORIG = join(DIR, '.orig');
 
   if (!existsSync(DIR)) { console.error(`✗ 目录不存在: ${DIR}`); process.exit(1); }
   let files = (await readdir(DIR)).filter((f) => f.endsWith('.md'));
@@ -92,10 +92,10 @@ async function main() {
   console.log('────────────────────────────────────────────────────');
   console.log(`共删除 ${totalRemoved} 行。明细见 ${reportPath}`);
   if (apply) {
-    console.log('已写回；原文备份在 tools/cleaned/.orig/。');
-    console.log('下一步：node tools/split-knowledge.mjs');
+    console.log(`已写回；原文备份在 ${ORIG}。`);
+    console.log(`下一步：node tools/split-knowledge.mjs --corpus ${corpus.id}`);
   } else {
-    console.log('这是预览。确认无误后运行：node tools/denoise-cleaned.mjs --apply');
+    console.log(`这是预览。确认无误后运行：node tools/denoise-cleaned.mjs --corpus ${corpus.id} --apply`);
   }
 }
 

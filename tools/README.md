@@ -1,12 +1,31 @@
-# tools/ — 占星知识库构建流水线
+# tools/ — 通用知识库构建流水线
 
-把 OCR 提取的占星书籍纯文本，**分块清洗 → 按领域拆分**，构建成高质量的 RAG 知识库。
+把 OCR 提取的书籍纯文本，**分块清洗 → 按领域拆分**，构建成高质量的 RAG 知识库。
+**通用、按领域（corpus）配置**：占星、八字、紫微斗数、印度占星…同一套引擎，配置驱动。
 
 ```
-tools/raw-knowledge/*.p.txt   ──Stage 1 清洗──▶   tools/cleaned/*.md
-                                                      │
-                                                      └──Stage 2 拆分──▶  assets/knowledge/builtin/*.md
+tools/raw-knowledge/<corpus>/*.p.txt ─Stage1 清洗─▶ tools/cleaned/<corpus>/*.md ─Stage2 拆分─▶ assets/knowledge/builtin/<corpus>-书名-领域.md
 ```
+
+## 多领域（corpus）
+
+每个知识领域是 `tools/corpora/<id>.mjs` 里的一份配置，只声明**领域相关**的部分：
+清洗提示词要素（`clean.subject/preserve/fixHint`）、子领域分类法（`domains: [{id, zh, desc, kw}]`）。
+目录按 id 约定派生，引擎完全通用。已内置：
+
+| id | 名称 | 子领域 |
+|----|------|--------|
+| `astrology` | 西方占星 | planets-signs/houses, aspects, patterns, retrograde, transit, synastry |
+| `bazi` | 八字命理 | ganzhi, wuxing, shishen, geju, dayun, shensha, pillars |
+| `ziwei` | 紫微斗数 | stars, palaces, sihua, geju, daxian |
+| `vedic` | 印度占星 | grahas, rashis, bhavas, nakshatra, dasha, yoga, aspects |
+
+所有命令用 `--corpus <id>` 选择领域（默认 `astrology`）。
+**新增一个知识领域 = 在 `tools/corpora/` 放一个 `<id>.mjs` + 在 `corpora/index.mjs` 的 `CORPUS_IDS` 加上 id**，无需改引擎。
+
+> 目录约定：`astrology` 沿用旧的扁平目录（`tools/raw-knowledge/`、`tools/cleaned/`）；其余领域用
+> 子目录 `tools/raw-knowledge/<id>/`、`tools/cleaned/<id>/`。输出统一进 `assets/knowledge/builtin/`，
+> 文件名带 `<id>-` 前缀且带 `<!-- domain: X -->` 标记，多领域可共存于同一知识库。
 
 ## 为什么分两段
 
@@ -24,17 +43,19 @@ tools/raw-knowledge/*.p.txt   ──Stage 1 清洗──▶   tools/cleaned/*.md
 ## 用法
 
 ```bash
-# 一键完成两步（推荐）
-node tools/build-knowledge.mjs
-node tools/build-knowledge.mjs --force        # 忽略 tools/cleaned 缓存，重新清洗
-node tools/build-knowledge.mjs "内在的宇宙"    # 仅处理文件名匹配的书
+# 一键完成两步（推荐）。--corpus 默认 astrology
+node tools/build-knowledge.mjs --corpus bazi
+node tools/build-knowledge.mjs --corpus bazi --force      # 忽略 cleaned 缓存，重新清洗
+node tools/build-knowledge.mjs --corpus bazi 子平          # 仅处理文件名匹配的书
 
-# 或分步运行
-node tools/clean-knowledge.mjs                # Stage 1 → tools/cleaned/
-node tools/split-knowledge.mjs                # Stage 2 → assets/knowledge/builtin/
+# 或分步运行（可在两步之间插入去噪）
+node tools/clean-knowledge.mjs   --corpus bazi            # Stage 1 → tools/cleaned/bazi/
+node tools/denoise-cleaned.mjs   --corpus bazi --apply    # 可选：保守去噪（图书信息/页码等）
+node tools/split-knowledge.mjs   --corpus bazi            # Stage 2 → assets/knowledge/builtin/
 ```
 
-完成后删除 `userData/data/vector-index/` 目录以重建向量索引。
+新领域准备：把该领域的 OCR `.p.txt` 放进 `tools/raw-knowledge/<id>/`。完成后删除
+`userData/data/vector-index/` 目录以重建向量索引（或 `npm run build:index` 预建）。
 
 ## 环境变量
 

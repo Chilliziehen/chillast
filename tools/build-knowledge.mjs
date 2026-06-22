@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 //
-// 一键构建知识库：Stage 1（清洗）→ Stage 2（按领域拆分）。
+// 一键构建某领域知识库：Stage 1（清洗）→ Stage 2（按领域拆分）。
 //
 // 用法:
-//   node tools/build-knowledge.mjs            # 全量
-//   node tools/build-knowledge.mjs --force    # 重新清洗（忽略 tools/cleaned 缓存）
-//   node tools/build-knowledge.mjs "内在的宇宙"  # 仅处理匹配的书
+//   node tools/build-knowledge.mjs                    # astrology
+//   node tools/build-knowledge.mjs --corpus bazi      # 八字
+//   node tools/build-knowledge.mjs --corpus ziwei --force
+//   node tools/build-knowledge.mjs --corpus vedic 关键词
 //
 // 环境变量见 tools/README.md。
 
@@ -13,15 +14,16 @@ import { writeFile } from 'fs/promises';
 import { join } from 'path';
 import { loadConfig, createChatModel } from './agent/config.mjs';
 import { listRawFiles, cleanFile, CHUNK_CHARS, CONCURRENCY } from './agent/pipeline.mjs';
-import { listCleanedFiles, splitCleanedFile, FINAL_DIR } from './agent/classify.mjs';
+import { listCleanedFiles, splitCleanedFile } from './agent/classify.mjs';
+import { loadCorpus } from './corpora/index.mjs';
+import { parseArgs } from './agent/cli.mjs';
 
 async function main() {
-  const args = process.argv.slice(2);
-  const force = args.includes('--force');
-  const filter = args.find((a) => !a.startsWith('--'));
+  const { corpusId, force, filter } = parseArgs(process.argv.slice(2));
+  const corpus = await loadCorpus(corpusId);
 
   console.log('╔══════════════════════════════════════════════════╗');
-  console.log('║   占星知识库构建：清洗 → 按领域拆分               ║');
+  console.log(`║  知识库构建（清洗→拆分） · ${corpus.name.padEnd(20)}║`);
   console.log('╚══════════════════════════════════════════════════╝\n');
 
   const config = await loadConfig();
@@ -29,6 +31,7 @@ async function main() {
     console.error('✗ 未找到 API Key。请设置 OPENAI_API_KEY，或在应用中配置 AI 设置。');
     process.exit(1);
   }
+  console.log(`✓ 领域: ${corpus.id} (${corpus.name}) | 原文: ${corpus.rawDir}`);
   console.log(`✓ LLM: ${config.provider} / ${config.model}`);
   console.log(`✓ 清洗参数: chunk=${CHUNK_CHARS} · 并发=${CONCURRENCY} · maxTokens=${config.maxTokens} · temp=${config.temperature}\n`);
 
@@ -37,16 +40,16 @@ async function main() {
   const msgs = { SystemMessage: m.SystemMessage, HumanMessage: m.HumanMessage };
 
   // ── Stage 1: clean ─────────────────────────────────────────
-  let rawFiles = await listRawFiles();
+  let rawFiles = await listRawFiles(corpus);
   if (filter) rawFiles = rawFiles.filter((f) => f.includes(filter));
-  if (!rawFiles.length) { console.error('✗ tools/raw-knowledge/ 下没有匹配的 .p.txt'); process.exit(1); }
+  if (!rawFiles.length) { console.error(`✗ ${corpus.rawDir} 下没有匹配的 .p.txt`); process.exit(1); }
 
   console.log(`【Stage 1 清洗】共 ${rawFiles.length} 本\n`);
   const cleanStats = [];
   for (const f of rawFiles) {
     console.log(`🤖 清洗: ${f}`);
     try {
-      const s = await cleanFile(model, msgs, f, { log: (x) => console.log(x), force });
+      const s = await cleanFile(model, msgs, corpus, f, { log: (x) => console.log(x), force });
       cleanStats.push(s);
       if (!s.skipped) console.log(`  ✓ ${s.outName}: ${s.inputChars}→${s.outputChars}（保留率 ${s.ratio}%）`);
       console.log('');
@@ -54,34 +57,31 @@ async function main() {
   }
 
   // ── Stage 2: classify & split ──────────────────────────────
-  let cleaned = await listCleanedFiles();
+  let cleaned = await listCleanedFiles(corpus);
   if (filter) cleaned = cleaned.filter((f) => f.includes(filter));
   console.log(`【Stage 2 按领域拆分】共 ${cleaned.length} 本\n`);
   const manifest = [];
   for (const f of cleaned) {
     console.log(`🔀 拆分: ${f}`);
     try {
-      const s = await splitCleanedFile(model, msgs, f, { log: (x) => console.log(x) });
+      const s = await splitCleanedFile(model, msgs, corpus, f, { log: (x) => console.log(x) });
       const keep = s.inputChars ? Math.round((s.outputChars / s.inputChars) * 100) : 100;
       console.log(`  ✓ ${s.segments} 段 → ${s.outputs.length} 领域文件（保全 ${keep}%）\n`);
-      manifest.push({ book: s.title, segments: s.segments, preservedPct: keep, outputs: s.outputs });
+      manifest.push({ corpus: corpus.id, book: s.title, segments: s.segments, preservedPct: keep, outputs: s.outputs });
     } catch (e) { console.error(`  ✗ 失败: ${e.message}\n`); }
   }
-  await writeFile(join(FINAL_DIR, '_manifest.json'), JSON.stringify(manifest, null, 2), 'utf-8');
+  await writeFile(join(corpus.outDir, `_manifest-${corpus.id}.json`), JSON.stringify(manifest, null, 2), 'utf-8');
 
   console.log('────────────────────────────────────────────────────');
   console.log('Stage 1 保留率:');
-  for (const s of cleanStats) {
-    if (s.skipped) { console.log(`  ${s.title}: (跳过)`); continue; }
-    console.log(`  ${s.title}: ${s.ratio}%${s.ratio < 50 ? '  ⚠' : ''}`);
-  }
+  for (const s of cleanStats) console.log(`  ${s.title}: ${s.skipped ? '(跳过)' : s.ratio + '%' + (s.ratio < 50 ? '  ⚠' : '')}`);
   const byDomain = {};
   for (const mm of manifest) for (const o of mm.outputs) byDomain[o.domain] = (byDomain[o.domain] || 0) + o.segs;
-  console.log('各领域段落数:');
+  console.log('各子领域段落数:');
   for (const [d, n] of Object.entries(byDomain).sort((a, b) => b[1] - a[1])) console.log(`  ${d}: ${n}`);
   console.log('────────────────────────────────────────────────────');
-  console.log('\n✓ 全部完成。最终知识库在 assets/knowledge/builtin/。');
-  console.log('  提示：删除 userData/data/vector-index/ 目录以强制重建向量索引。');
+  console.log(`\n✓ 全部完成。最终知识库在 ${corpus.outDir}。`);
+  console.log('  下一步：npm run build:index （预建索引）或删除 vector-index 重建。');
 }
 
 main().catch((e) => { console.error('✗ 错误:', e.message); process.exit(1); });
