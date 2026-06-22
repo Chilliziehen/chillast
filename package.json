@@ -17,32 +17,37 @@
   "build": {
     "appId": "com.chillast.astrology",
     "productName": "CHILLAST",
+    "npmRebuild": false,
     "files": [
       "src/**/*",
-      "assets/**/*",
+      "fonts/**/*",
+      "locale/**/*",
+      "config.json",
       "package.json"
     ],
     "asarUnpack": [
       "src/core/ai/EmbeddingWorker.js",
       "node_modules/onnxruntime-node/**",
       "node_modules/@huggingface/transformers/**",
-      "node_modules/hnswlib-node/**"
+      "node_modules/hnswlib-node/**",
+      "node_modules/swisseph-v2/**"
     ],
     "extraResources": [
-      {
-        "from": "resources/models",
-        "to": "models"
-      },
-      {
-        "from": "resources/vector-index",
-        "to": "vector-index"
-      }
+      { "from": "assets", "to": "assets" },
+      { "from": "resources/models", "to": "models" },
+      { "from": "resources/vector-index", "to": "vector-index" }
     ],
     "directories": {
       "output": "release"
     },
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "artifactName": "${productName}-${version}-setup.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false
     }
   },
   "dependencies": {
