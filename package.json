@@ -11,7 +11,9 @@
     "test": "node tests/RunAll.js",
     "smoke": "node tests/SmokeRenderer.js",
     "rebuild": "electron-rebuild -f -w swisseph-v2",
+    "rebuild:node": "npm rebuild swisseph-v2",
     "build:index": "node tools/build-index.mjs",
+    "predist": "electron-rebuild -f -w swisseph-v2",
     "dist": "electron-builder"
   },
   "build": {
