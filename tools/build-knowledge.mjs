@@ -14,13 +14,13 @@ import { writeFile } from 'fs/promises';
 import { join } from 'path';
 import { loadConfig, createChatModel } from './agent/config.mjs';
 import { listRawFiles, cleanFile, CHUNK_CHARS, CONCURRENCY } from './agent/pipeline.mjs';
-import { listCleanedFiles, splitCleanedFile } from './agent/classify.mjs';
+import { listCleanedFiles, splitCleanedFile, resolveDomains } from './agent/classify.mjs';
 import { loadCorpus } from './corpora/index.mjs';
 import { parseArgs } from './agent/cli.mjs';
 
 async function main() {
-  const { corpusId, force, filter } = parseArgs(process.argv.slice(2));
-  const corpus = await loadCorpus(corpusId);
+  const { corpusId, name, force, filter } = parseArgs(process.argv.slice(2));
+  const corpus = await loadCorpus(corpusId, { name });
 
   console.log('╔══════════════════════════════════════════════════╗');
   console.log(`║  知识库构建（清洗→拆分） · ${corpus.name.padEnd(20)}║`);
@@ -59,7 +59,9 @@ async function main() {
   // ── Stage 2: classify & split ──────────────────────────────
   let cleaned = await listCleanedFiles(corpus);
   if (filter) cleaned = cleaned.filter((f) => f.includes(filter));
-  console.log(`【Stage 2 按领域拆分】共 ${cleaned.length} 本\n`);
+  console.log(`【Stage 2 按领域拆分】共 ${cleaned.length} 本`);
+  if (corpus.auto) { console.log('🧭 自动归纳子领域…'); await resolveDomains(model, msgs, corpus, cleaned, { log: (x) => console.log(x) }); }
+  console.log(`子领域: ${corpus.domains.map((d) => d.id).join(', ')}\n`);
   const manifest = [];
   for (const f of cleaned) {
     console.log(`🔀 拆分: ${f}`);

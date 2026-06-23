@@ -18,6 +18,93 @@ const MIN_SEG_CHARS = 200;
 const CLASSIFY_BATCH = Number(process.env.SPLIT_BATCH || 18);
 const CLASSIFY_CONCURRENCY = Number(process.env.SPLIT_CONCURRENCY || 3);
 
+const GENERAL_DOMAIN = { id: 'general', zh: '综合', desc: '导论、概述、源流、方法论等通用内容', kw: [] };
+
+// Deterministic fallback taxonomy for generic corpora when no LLM is available —
+// broad enough to fit most术数/玄学 books (六壬/易学/堪舆/择日/梅花/天文历法…).
+const GENERIC_DOMAINS = [
+  { id: 'foundation', zh: '基础理论', desc: '基本概念、原理、源流、术语定义', kw: ['基础', '原理', '概念', '源流', '概述', '入门', '总论', '绪论'] },
+  { id: 'method', zh: '方法操作', desc: '起局/排盘/起卦/装卦/推断的步骤与规则', kw: ['起局', '排盘', '起卦', '装卦', '推断', '方法', '步骤', '起例', '布局', '定局'] },
+  { id: 'interpretation', zh: '象意断辞', desc: '各类象意、断辞、释义、吉凶判断', kw: ['象意', '断辞', '断语', '吉凶', '释义', '主', '应', '所主'] },
+  { id: 'cases', zh: '案例', desc: '命例、卦例、盘例、实占记录', kw: ['命例', '卦例', '占例', '实例', '案'] },
+  { id: 'reference', zh: '口诀图表', desc: '歌赋口诀、表格、查表、速查', kw: ['歌诀', '口诀', '歌赋', '赋', '诀', '图表', '查表'] },
+  { ...GENERAL_DOMAIN },
+];
+
+/** Pull a sample of ##/### headings across a corpus's cleaned books (for taxonomy). */
+export async function gatherHeadingSamples(corpus, files, max = 140) {
+  const seen = new Set();
+  for (const f of files) {
+    let raw;
+    try { raw = await readFile(join(corpus.cleanedDir, f), 'utf-8'); } catch (_) { continue; }
+    for (const line of raw.split('\n')) {
+      const m = line.match(/^#{2,3}\s+(.+)/);
+      if (m) {
+        const h = m[1].trim().slice(0, 40);
+        if (h && !seen.has(h)) seen.add(h);
+        if (seen.size >= max) break;
+      }
+    }
+    if (seen.size >= max) break;
+  }
+  return [...seen];
+}
+
+/** Ask the LLM to propose a domain taxonomy for an arbitrary subject from its headings. */
+export async function proposeDomains(model, msgs, corpus, headings) {
+  const { SystemMessage, HumanMessage } = msgs;
+  const sys = `你在为「${corpus.name}」这一中文术数/玄学/命理领域设计 RAG 知识库的**子领域分类法**。下面给你该领域若干书籍的章节标题样本。请据此提出 4~8 个**互斥、能覆盖该领域主要内容**的子领域：
+- 每个给：英文小写连字符 id（如 method、cases、symbols）、中文名 zh、一句话说明 desc。
+- 贴合本领域的实际内容与术语，不要套用占星词汇。
+- 最后必须包含一个兜底项 {"id":"general","zh":"综合","desc":"其他/通用内容"}。
+只输出一个 JSON 数组，元素形如 {"id":"...","zh":"...","desc":"..."}，不要任何多余文字。`;
+  const res = await withRetry(() => model.invoke([
+    new SystemMessage(sys),
+    new HumanMessage(`章节标题样本（${headings.length} 条）：\n${headings.join('\n')}`),
+  ]));
+  const arr = parseJsonArray(extractText(res));
+  if (!arr || !arr.length) return null;
+  const out = [];
+  const seen = new Set();
+  for (const d of arr) {
+    if (!d || typeof d.id !== 'string') continue;
+    const id = d.id.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/^-+|-+$/g, '');
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    out.push({ id, zh: d.zh || id, desc: d.desc || '', kw: [] });
+  }
+  if (!out.length) return null;
+  if (!seen.has('general')) out.push({ ...GENERAL_DOMAIN });
+  return out;
+}
+
+/**
+ * Ensure corpus.domains is concrete. For generic (auto) corpora, discover the
+ * taxonomy from the cleaned books via the LLM; fall back to GENERIC_DOMAINS when
+ * no model. Mutates + returns the corpus. Call once per run before splitting.
+ */
+export async function resolveDomains(model, msgs, corpus, files, { log = () => {} } = {}) {
+  if (!corpus.auto && corpus.domains) return corpus;
+  if (model) {
+    const headings = await gatherHeadingSamples(corpus, files);
+    if (headings.length >= 4) {
+      try {
+        const proposed = await proposeDomains(model, msgs, corpus, headings);
+        if (proposed) {
+          corpus.domains = proposed;
+          corpus.auto = false;
+          log(`  ✓ 自动归纳子领域: ${proposed.map((d) => d.id).join(', ')}`);
+          return corpus;
+        }
+      } catch (e) { log(`  ⚠ 子领域自动归纳失败(${e.message})，改用通用分类`); }
+    }
+  }
+  corpus.domains = GENERIC_DOMAINS.map((d) => ({ ...d }));
+  corpus.auto = false;
+  log(`  · 使用通用子领域: ${corpus.domains.map((d) => d.id).join(', ')}`);
+  return corpus;
+}
+
 /** Build the classification system prompt from a corpus's domains. */
 export function classifySystemPrompt(corpus) {
   const lines = corpus.domains.map((d) => `- ${d.id}：${d.desc}`).join('\n');

@@ -17,8 +17,8 @@ import { loadCorpus } from './corpora/index.mjs';
 import { parseArgs } from './agent/cli.mjs';
 
 async function main() {
-  const { corpusId, force, filter } = parseArgs(process.argv.slice(2));
-  const corpus = await loadCorpus(corpusId);
+  const { corpusId, name, force, filter } = parseArgs(process.argv.slice(2));
+  const corpus = await loadCorpus(corpusId, { name });
 
   console.log('╔══════════════════════════════════════════════════╗');
   console.log(`║  数据清洗 Stage 1 · ${corpus.name.padEnd(28)}║`);

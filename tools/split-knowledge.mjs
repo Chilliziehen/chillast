@@ -13,18 +13,17 @@
 import { writeFile } from 'fs/promises';
 import { join } from 'path';
 import { loadConfig, createChatModel } from './agent/config.mjs';
-import { listCleanedFiles, splitCleanedFile } from './agent/classify.mjs';
+import { listCleanedFiles, splitCleanedFile, resolveDomains } from './agent/classify.mjs';
 import { loadCorpus } from './corpora/index.mjs';
 import { parseArgs } from './agent/cli.mjs';
 
 async function main() {
-  const { corpusId, filter } = parseArgs(process.argv.slice(2));
-  const corpus = await loadCorpus(corpusId);
+  const { corpusId, name, filter } = parseArgs(process.argv.slice(2));
+  const corpus = await loadCorpus(corpusId, { name });
 
   console.log('╔══════════════════════════════════════════════════╗');
   console.log(`║  按领域拆分 Stage 2 · ${corpus.name.padEnd(26)}║`);
   console.log('╚══════════════════════════════════════════════════╝\n');
-  console.log(`领域: ${corpus.id} | 子领域: ${corpus.domains.map((d) => d.id).join(', ')}\n`);
 
   const config = await loadConfig();
   let model = null;
@@ -45,6 +44,10 @@ async function main() {
   }
   if (filter) files = files.filter((f) => f.includes(filter));
   if (!files.length) { console.error(`✗ 没有匹配 "${filter}" 的文件。`); process.exit(1); }
+
+  // Generic (auto) corpora: discover the子领域 taxonomy from the books first.
+  if (corpus.auto) { console.log('🧭 自动归纳子领域…'); await resolveDomains(model, msgs, corpus, files, { log: (m) => console.log(m) }); console.log(''); }
+  console.log(`领域: ${corpus.id} | 子领域: ${corpus.domains.map((d) => d.id).join(', ')}\n`);
 
   console.log(`📚 待拆分 (${files.length}):`);
   for (const f of files) console.log(`   - ${f}`);

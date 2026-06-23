@@ -6,6 +6,7 @@
 
 export function parseArgs(argv) {
   let corpusId = 'astrology';
+  let name = null;
   let force = false;
   let apply = false;
   let filter = null;
@@ -13,9 +14,11 @@ export function parseArgs(argv) {
     const a = argv[i];
     if (a === '--corpus') corpusId = argv[++i] || corpusId;
     else if (a.startsWith('--corpus=')) corpusId = a.slice('--corpus='.length);
+    else if (a === '--name') name = argv[++i] || name;
+    else if (a.startsWith('--name=')) name = a.slice('--name='.length);
     else if (a === '--force') force = true;
     else if (a === '--apply') apply = true;
     else if (!a.startsWith('--')) filter = a;
   }
-  return { corpusId, force, apply, filter };
+  return { corpusId, name, force, apply, filter };
 }

@@ -18,13 +18,9 @@ import { extractText, stripFence, mapWithConcurrency, withRetry } from './util.m
 export const CHUNK_CHARS = Number(process.env.CLEAN_CHUNK_CHARS || 4500);
 export const CONCURRENCY = Number(process.env.CLEAN_CONCURRENCY || 4);
 
-/** Build the per-chunk cleaning system prompt for a given corpus. */
-export function cleanSystemPrompt(corpus) {
-  const c = (corpus && corpus.clean) || {};
-  const subject = c.subject || '专业书籍';
-  const preserve = c.preserve || '专业术语、专有名词与符号';
-  const fixHint = c.fixHint || '明显错字与被错误拆分的词';
-  return `你是${subject}OCR 文本清洗专家。下面给你的是从一本${subject}中 OCR 提取的**一段**原始纯文本（整本书的一部分）。请把它清洗成规范的简体中文 Markdown。
+// Universal cleaning prompt — works for ANY Chinese 术数/玄学/命理/神秘学 literature
+// (占星、八字、紫微、大小六壬、易学、堪舆/撼龙经、择日、梅花易数、天文历法、周易…).
+const UNIVERSAL_CLEAN_PROMPT = `你是中文术数 / 玄学 / 命理 / 神秘学古籍的 OCR 文本清洗专家。下面给你的是从一本这类书籍中 OCR 提取的**一段**原始纯文本（整本书的一部分）。请把它清洗成规范的简体中文 Markdown。
 
 【第一原则：这是清洗，不是摘要】
 - 逐句保留原文的**全部实质内容**，禁止概括、缩写、改写、删减或省略任何正文。
@@ -32,18 +28,29 @@ export function cleanSystemPrompt(corpus) {
 - 清洗后的中文正文字数应与输入正文相当（通常 ≥ 输入正文的 90%）。宁可多保留，也不要丢内容。
 
 【需要修复的 OCR 问题】
-- 删除：纯乱码片段（如 {l hmrt {ee）、页眉页脚、孤立页码、纯英文的版权/目录噪声。
-- 修正：${fixHint}。
-- 合并：被错误断行/分页切断的句子和段落，恢复成通顺的整段。
-- 保留：${preserve}。
+- 删除：纯乱码片段（如 {l hmrt {ee）、页眉页脚、孤立页码、纯英文/无意义的版权与目录噪声。
+- 修正：明显错字、被错误拆分或粘连的词（依上下文判断，不确定就保留原样，绝不臆改专业术语与数据）。
+- 合并：被错误断行 / 分页切断的句子和段落，恢复成通顺的整段。
+- **保留一切专业内容与符号**：卦象 / 爻辞 / 卦名、天干地支、五行十神、神煞、星座 / 宫位 / 相位及其符号（☉ ☽ ☿ ♀ ♂ ♃ ♄ ♅ ♆ ♇ 等）、二十八宿、口诀歌赋、命例 / 卦例 / 盘例、古文引文、表格与数字数据。看不懂也不要删改。
 
 【格式要求】
-- 若本段中出现章节或小节标题，用 ## / ### 还原；正文用普通段落。
+- 若本段中出现章节或小节标题，用 ## / ### 还原；正文用普通段落；原文的表格尽量用 Markdown 表格或保持其行列结构。
 - 不要新增原文没有的标题、解释或总结。
 - 直接输出清洗后的 Markdown 正文本身，不要任何前言、说明、不要用 \`\`\` 代码块包裹，不要写"以下是清洗结果"之类的话。
 
 【特例】
 - 如果这一段几乎全是乱码、版权页、目录或空白、没有任何实质正文，只回复一个词：SKIP`;
+
+/** Build the per-chunk cleaning system prompt. Universal by default; a corpus may
+ *  append an optional领域提示 (clean.preserve) to bias term preservation. */
+export function cleanSystemPrompt(corpus) {
+  const c = (corpus && corpus.clean) || {};
+  const name = (corpus && corpus.name) || '';
+  if (name || c.preserve) {
+    const extra = c.preserve ? `尤其注意完整保留：${c.preserve}。` : '';
+    return `${UNIVERSAL_CLEAN_PROMPT}\n\n【本书领域提示】本书属于「${name || '术数/玄学'}」领域。${extra}`;
+  }
+  return UNIVERSAL_CLEAN_PROMPT;
 }
 
 /**

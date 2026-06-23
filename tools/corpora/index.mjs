@@ -1,29 +1,25 @@
 // corpora/index.mjs — registry of knowledge "corpora" (subject domains).
 //
-// Each corpus config (./<id>.mjs) declares only the subject-specific bits:
-//   - name:   human label
-//   - clean:  { subject, preserve, fixHint }  → OCR cleaning prompt inputs
-//   - domains:[{ id, zh, desc, kw }]          → classification taxonomy
-// Directories are derived from the id by convention (see below), so adding a new
-// knowledge base = drop one config file in this folder.
+// A corpus is identified by an id. If tools/corpora/<id>.mjs exists, it provides a
+// curated config (domains taxonomy + optional cleaning hints). If it does NOT
+// exist, ANY id still works via a generic profile whose domains are auto-discovered
+// by the LLM at split time — so introducing a brand-new kind of esoteric literature
+// (大六壬 / 易学 / 撼龙经 / 梅花易数 …) needs ZERO config: just drop the OCR files in
+// tools/raw-knowledge/<id>/ and run the tools with --corpus <id>.
 
 import { join } from 'path';
 
 const ROOT = process.cwd();
 
-// Known corpora. Add an id here + a matching ./<id>.mjs to support a new subject.
+// Curated corpora (have a tuned config file). Any other id also works (generic).
 export const CORPUS_IDS = ['astrology', 'bazi', 'ziwei', 'vedic'];
 
-/**
- * Resolve directories for a corpus. Astrology keeps the legacy flat dirs for
- * back-compat; every other corpus is isolated under a <id>/ subfolder.
- */
+const GENERAL_DOMAIN = { id: 'general', zh: '综合', desc: '导论、概述、历史、源流、方法论等通用内容', kw: [] };
+
+/** Astrology keeps the legacy flat dirs; everything else is isolated under <id>/. */
 function dirsFor(id) {
   if (id === 'astrology') {
-    return {
-      rawDir: join(ROOT, 'tools', 'raw-knowledge'),
-      cleanedDir: join(ROOT, 'tools', 'cleaned'),
-    };
+    return { rawDir: join(ROOT, 'tools', 'raw-knowledge'), cleanedDir: join(ROOT, 'tools', 'cleaned') };
   }
   return {
     rawDir: join(ROOT, 'tools', 'raw-knowledge', id),
@@ -31,28 +27,33 @@ function dirsFor(id) {
   };
 }
 
-export async function loadCorpus(id) {
+export async function loadCorpus(id, opts = {}) {
   const cid = id || 'astrology';
-  if (!CORPUS_IDS.includes(cid)) {
-    throw new Error(`未知知识领域 corpus: "${cid}"。可用: ${CORPUS_IDS.join(', ')}`);
-  }
-  let mod;
+
+  let cfg = null;
   try {
-    mod = await import(`./${cid}.mjs`);
-  } catch (e) {
-    throw new Error(`加载 corpus "${cid}" 失败: ${e.message}`);
+    const mod = await import(`./${cid}.mjs`);
+    cfg = mod.default || mod;
+  } catch (_) {
+    cfg = null; // no config file → generic, auto-domain profile
   }
-  const c = mod.default || mod;
-  if (!c.domains || !c.domains.length) throw new Error(`corpus "${cid}" 未定义 domains`);
-  if (!c.domains.some((d) => d.id === 'general')) {
-    c.domains.push({ id: 'general', zh: '综合', desc: '导论、概述、历史、方法论等通用内容', kw: [] });
+
+  const name = (cfg && cfg.name) || opts.name || cid;
+  const clean = (cfg && cfg.clean) || {};
+
+  let domains;
+  let auto;
+  if (cfg && Array.isArray(cfg.domains) && cfg.domains.length) {
+    domains = cfg.domains.slice();
+    if (!domains.some((d) => d.id === 'general')) domains.push({ ...GENERAL_DOMAIN });
+    auto = false;
+  } else {
+    // Generic: the domain taxonomy is discovered by the LLM at split time.
+    domains = null;
+    auto = true;
   }
-  return {
-    id: cid,
-    name: c.name || cid,
-    clean: c.clean || {},
-    domains: c.domains,
-    ...dirsFor(cid),
-    outDir: join(ROOT, 'assets', 'knowledge', 'builtin'),
-  };
+
+  return { id: cid, name, clean, domains, auto, ...dirsFor(cid), outDir: join(ROOT, 'assets', 'knowledge', 'builtin') };
 }
+
+export { GENERAL_DOMAIN };

@@ -9,9 +9,19 @@ tools/raw-knowledge/<corpus>/*.p.txt ─Stage1 清洗─▶ tools/cleaned/<corpu
 
 ## 多领域（corpus）
 
-每个知识领域是 `tools/corpora/<id>.mjs` 里的一份配置，只声明**领域相关**的部分：
-清洗提示词要素（`clean.subject/preserve/fixHint`）、子领域分类法（`domains: [{id, zh, desc, kw}]`）。
-目录按 id 约定派生，引擎完全通用。已内置：
+清洗是**通用**的（一套提示词适配占星、八字、六壬、易学、堪舆、梅花、天文历法等所有术数/玄学文献）；
+拆分的子领域分类，对新领域由 LLM**自动归纳**，无需任何配置。
+
+### 引入一个全新领域（零配置）
+1. 把该领域的 OCR `.p.txt` 放进 `tools/raw-knowledge/<新id>/`；
+2. 直接跑：`node tools/build-knowledge.mjs --corpus <新id> --name "中文名"`。
+
+就这样——清洗用通用提示词；拆分时先让 LLM 看各书章节标题、**自动提出本领域的子领域分类**，再据此归类。
+例：`--corpus daliuren --name 大六壬`、`--corpus meihua --name 梅花易数`、`--corpus hanlongjing --name 撼龙经`。
+
+### 想要更精细 / 固定的子领域（可选）
+为某领域在 `tools/corpora/<id>.mjs` 写一份配置（`domains:[{id,zh,desc,kw}]` + 可选 `clean.preserve`），
+该领域就改用你手写的分类法（不再自动归纳）。已内置 4 个精调领域：
 
 | id | 名称 | 子领域 |
 |----|------|--------|
@@ -20,12 +30,10 @@ tools/raw-knowledge/<corpus>/*.p.txt ─Stage1 清洗─▶ tools/cleaned/<corpu
 | `ziwei` | 紫微斗数 | stars, palaces, sihua, geju, daxian |
 | `vedic` | 印度占星 | grahas, rashis, bhavas, nakshatra, dasha, yoga, aspects |
 
-所有命令用 `--corpus <id>` 选择领域（默认 `astrology`）。
-**新增一个知识领域 = 在 `tools/corpora/` 放一个 `<id>.mjs` + 在 `corpora/index.mjs` 的 `CORPUS_IDS` 加上 id**，无需改引擎。
-
-> 目录约定：`astrology` 沿用旧的扁平目录（`tools/raw-knowledge/`、`tools/cleaned/`）；其余领域用
+> 目录约定：`astrology` 沿用扁平目录（`tools/raw-knowledge/`、`tools/cleaned/`）；其余领域（含自动领域）用
 > 子目录 `tools/raw-knowledge/<id>/`、`tools/cleaned/<id>/`。输出统一进 `assets/knowledge/builtin/`，
-> 文件名带 `<id>-` 前缀且带 `<!-- domain: X -->` 标记，多领域可共存于同一知识库。
+> 文件名带 `<id>-` 前缀与 `<!-- domain: X -->` 标记，多领域共存于同一知识库。
+> 无 API Key 时，自动领域回退到一套通用子领域（foundation/method/interpretation/cases/reference/general）。
 
 ## 为什么分两段
 
