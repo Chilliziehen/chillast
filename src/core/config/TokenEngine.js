@@ -45,6 +45,7 @@ const TokenEngine = {
       ephemeris: raw.ephemeris || { backend: 'swisseph' },
       ai: raw.ai || { provider: 'openai', model: 'gpt-4o', temperature: 0.7, maxTokens: 4096, enableRag: true, ragTopK: 6 },
       embeddings: raw.embeddings || { provider: 'local', model: 'Xenova/bge-small-zh-v1.5', endpoint: 'https://hf-mirror.com' },
+      search: raw.search || { provider: 'bing', maxResults: 5 },
       ui: raw.ui || {},
       locale: raw.locale || 'zh',
     };

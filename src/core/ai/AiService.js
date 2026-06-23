@@ -7,6 +7,7 @@ const ToolRegistry = require('./tools/ToolRegistry');
 const AstroToolProvider = require('./tools/AstroToolProvider');
 const ContextToolProvider = require('./tools/ContextToolProvider');
 const KnowledgeToolProvider = require('./tools/KnowledgeToolProvider');
+const WebSearchToolProvider = require('./tools/WebSearchToolProvider');
 const ProfileToolProvider = require('./tools/ProfileToolProvider');
 const McpToolProvider = require('./tools/McpToolProvider');
 const McpManager = require('./mcp/McpManager');
@@ -103,6 +104,7 @@ class AiService {
       this._registry.register(new ContextToolProvider(this));
       this._registry.register(new ProfileToolProvider(this._profiles));
       this._registry.register(new KnowledgeToolProvider(this._kb));
+      this._registry.register(new WebSearchToolProvider(settings.search));
       // External MCP servers (off unless explicitly enabled in mcpServers config).
       this._registry.register(new McpToolProvider(this._mcpManager));
       await this._registry.initAll();

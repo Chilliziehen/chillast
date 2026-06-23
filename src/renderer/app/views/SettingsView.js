@@ -31,6 +31,7 @@ const TOOL_PROVIDER_LABELS = {
   astro: '占星排盘工具',
   context: '当前上下文工具',
   kb: '知识库检索',
+  web: '联网搜索',
   mcp: 'MCP 外部工具',
   profiles: '档案查询工具',
 };

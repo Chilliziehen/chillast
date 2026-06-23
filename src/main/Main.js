@@ -96,6 +96,11 @@ class Main {
         cacheDir: path.join(baseDir, 'models'),
         ...bundledModel,
       },
+      // Web-search tool config (provider/key/endpoint), independent of chat.
+      search: {
+        ...(this.config.search || {}),
+        ...(persistedSettings.search || {}),
+      },
       knowledgeBuiltinPath: builtinKnowledgePath,
       knowledgeUserPath: userKnowledgePath,
       knowledgeIndexDir: vectorIndexDir,

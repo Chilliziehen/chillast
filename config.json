@@ -119,6 +119,13 @@
     "offline": false
   },
 
+  "search": {
+    "provider": "bing",
+    "maxResults": 5,
+    "apiKey": "",
+    "endpoint": ""
+  },
+
   "ui": {
     "showBrandSub": false,
     "showHeaderChips": false,
