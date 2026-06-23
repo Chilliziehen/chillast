@@ -29,6 +29,14 @@ function fail(message) {
 app.disableHardwareAcceleration();
 
 app.whenReady().then(async () => {
+  // Configure the Swiss Ephemeris path (Main does this in the real app); without
+  // it, swisseph chart compute throws "星历数据路径未配置" and the wheel render
+  // gets undefined data.
+  try {
+    const SwissEphCore = require('../src/core/astrology/ephemeris/SwissEphCore');
+    SwissEphCore.configure({ ephePath: path.join(__dirname, '..', 'assets', 'ephemeris') });
+  } catch (_) { /* swisseph optional; JS fallback otherwise */ }
+
   // Isolated temp store.
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'myst-smoke-'));
   const repo = new ProfileRepository(tmpDir).init();
