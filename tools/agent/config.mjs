@@ -53,7 +53,14 @@ export async function loadConfig() {
   }
 
   const provider = persisted.provider || aiDefaults.provider || process.env.AI_PROVIDER || 'openai';
-  const model = persisted.model || aiDefaults.model || process.env.AI_MODEL || 'gpt-4o';
+  // Data cleaning/classification is high-volume → prefer a fast, cheap model,
+  // INDEPENDENT of the app's chat model (provider/baseUrl/key still come from your
+  // config, so it hits the same endpoint). Priority: CLEAN_MODEL env > persisted
+  // cleanModel > config.ai.cleanModel > 'deepseek-v4-flash'.
+  const model = process.env.CLEAN_MODEL
+    || persisted.cleanModel
+    || aiDefaults.cleanModel
+    || 'deepseek-v4-flash';
   const baseUrl = persisted.baseUrl || aiDefaults.baseUrl || process.env.AI_BASE_URL || '';
   // Low temperature for faithful, deterministic cleaning.
   const temperature = Number(process.env.CLEAN_TEMPERATURE ?? 0.1);

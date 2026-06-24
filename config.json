@@ -104,6 +104,7 @@
   "ai": {
     "provider": "openai",
     "model": "gpt-4o",
+    "cleanModel": "deepseek-v4-flash",
     "temperature": 0.7,
     "maxTokens": 4096,
     "enableRag": true,

@@ -78,6 +78,7 @@ set OPENAI_API_KEY=sk-...      # 或 ANTHROPIC_API_KEY
 | `CLEAN_CONCURRENCY` | 4 | 1 | 并发清洗的块数。受供应商速率限制。 |
 | `CLEAN_MAX_TOKENS` | 8192 | 1/2 | 单次输出 token 上限。**避免截断的关键。** |
 | `CLEAN_TEMPERATURE` | 0.1 | 1/2 | 采样温度，越低越忠实。 |
+| `CLEAN_MODEL` | `deepseek-v4-flash` | 1/2 | 清洗/分类用的模型（独立于 app 对话模型，省钱省时）。也可在 `config.json` 的 `ai.cleanModel` 设。provider/baseUrl/key 仍取你的配置。 |
 | `SPLIT_SEG_CHARS` | 3500 | 2 | 分类单元的最大字符数。 |
 | `SPLIT_BATCH` | 18 | 2 | 每次 LLM 分类的段落数（只发标题+摘要，便宜）。 |
 | `SPLIT_CONCURRENCY` | 3 | 2 | 并发分类批数。 |
