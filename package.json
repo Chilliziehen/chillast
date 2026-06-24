@@ -13,6 +13,7 @@
     "rebuild": "electron-rebuild -f --only swisseph-v2",
     "rebuild:node": "npm rebuild swisseph-v2",
     "build:index": "node tools/build-index.mjs",
+    "stage:index": "node tools/stage-index.mjs",
     "predist": "electron-rebuild -f --only swisseph-v2",
     "dist": "electron-builder"
   },
